@@ -153,12 +153,10 @@ public final class MadokuHealthManager {
 		}
 
 		if (state.getHealthSurplusPoints() > 0.0) {
-			double current = state.getCurrentHealthPoints();
-			state.consumeHealthSurplusPoints(1.0);
-			double target = Math.min(maxHealth, current + 1.0);
-			state.setCurrentHealthPoints(target, maxHealth);
-			player.setHealth((float) state.getCurrentHealthPoints());
-			return;
+			double transferred = state.moveSurplusToPending(maxHealth, config.getPendingHealthTimer());
+			if (transferred > 0.0) {
+				return;
+			}
 		}
 
 		var hungerManager = player.getHungerManager();
@@ -394,6 +392,22 @@ public final class MadokuHealthManager {
 			resetPendingTimer(1);
 			resetPendingClearTimer();
 			addHealthSurplusPoints(amount);
+		}
+
+		double moveSurplusToPending(double maxHealth, int pendingTimer) {
+			double capacity = getPendingCapacity(maxHealth);
+			if (capacity <= 0.0 || healthSurplusPoints <= 0.0) {
+				return 0.0;
+			}
+			double amount = Math.min(1.0, Math.min(capacity, healthSurplusPoints));
+			if (amount <= 0.0) {
+				return 0.0;
+			}
+			consumeHealthSurplusPoints(amount);
+			addPendingHealthPoints(amount);
+			resetPendingTimer(pendingTimer);
+			resetPendingClearTimer();
+			return amount;
 		}
 
 		void addHealthSurplusPoints(double value) {

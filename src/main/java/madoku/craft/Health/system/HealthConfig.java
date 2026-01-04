@@ -29,8 +29,8 @@ public final class HealthConfig {
 		this.enableFeature = readBoolean("enableFeature", true);
 		this.maximumHealthPoints = readInt("maximumHealthPoints", 20);
 		this.pendingHealthMultiplier = readDouble("pendingHealthMultiplier", 1.0);
-		this.pendingHealthTimer = readInt("pendingHealthTimer", 4);
-		int hungerDepletionValue = readInt("hungerDepletionTimer", 4);
+		this.pendingHealthTimer = readInt("pendingHealthTimer", 10);
+		int hungerDepletionValue = readInt("hungerDepletionTimer", 10);
 		this.hungerDepletionTimer = Math.max(1, hungerDepletionValue);
 		if (this.hungerDepletionTimer != hungerDepletionValue) {
 			root.addProperty("hungerDepletionTimer", this.hungerDepletionTimer);
