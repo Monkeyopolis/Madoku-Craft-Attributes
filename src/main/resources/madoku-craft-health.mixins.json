@@ -1,0 +1,15 @@
+{
+	"required": true,
+	"package": "madoku.craft.Health.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"ItemStackMixin",
+		"PlayerEntityMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}
