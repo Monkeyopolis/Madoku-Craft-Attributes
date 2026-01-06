@@ -5,10 +5,10 @@ import com.google.gson.JsonObject;
 import madoku.craft.Health.system.HealthConfig;
 import madoku.craft.Health.system.MadokuHealthManager;
 import madoku.craft.API.system.MadokuSavingSystem;
+import madoku.craft.API.system.MadokuTickSystem;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 
@@ -27,8 +27,13 @@ public class MadokuCraftHealth implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		HealthConfig config = HealthConfig.load();
-		MadokuSavingSystem.MadokuData data = MadokuSavingSystem.load("madoku_craft_health", buildSavingDefaults());
+		MadokuSavingSystem.MadokuData data = MadokuSavingSystem.loadDeferred("madoku_craft_health", buildSavingDefaults());
 		MadokuHealthManager.initialize(config, data);
+
+		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+			MadokuSavingSystem.reloadForWorld(data, "madoku_craft_health", buildSavingDefaults(), server);
+			MadokuHealthManager.initialize(config, data);
+		});
 
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			MadokuHealthManager manager = MadokuHealthManager.getInstance();
@@ -48,7 +53,7 @@ public class MadokuCraftHealth implements ModInitializer {
 			}
 		});
 
-		ServerTickEvents.END_SERVER_TICK.register(server -> {
+		MadokuTickSystem.register(MadokuTickSystem.Phase.END, server -> {
 			MadokuHealthManager manager = MadokuHealthManager.getInstance();
 			if (manager != null) {
 				manager.onServerTick(server);
