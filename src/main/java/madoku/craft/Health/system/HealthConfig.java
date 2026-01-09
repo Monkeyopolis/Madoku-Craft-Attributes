@@ -94,8 +94,8 @@ public final class HealthConfig {
 		defaults.addProperty("enableFeature", true);
 		defaults.addProperty("maximumHealthPoints", 20);
 		defaults.addProperty("pendingHealthMultiplier", 1.0);
-		defaults.addProperty("pendingHealthTimer", 4);
-		defaults.addProperty("hungerDepletionTimer", 4);
+		defaults.addProperty("pendingHealthTimer", 10);
+		defaults.addProperty("hungerDepletionTimer", 10);
 		defaults.addProperty("hungerDepletionThreshold", 75.0);
 		defaults.addProperty("maximumHealthSurplusPoints", 25.0);
 		defaults.addProperty("hungerHealthReductionThreshold", 25.0);

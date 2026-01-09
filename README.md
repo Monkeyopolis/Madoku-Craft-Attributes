@@ -14,4 +14,5 @@ Madoku Craft API provides this mod's the JSON, data, TICK system.
 The mod's health system checks if a player is missing health.
 If they're missing health, the system checks the player's hunger.
 If the player has enough hunger, it converts it into health.
+If the player loses enough hunger, it reduces the player's health.
 The player can restore health by eating.
