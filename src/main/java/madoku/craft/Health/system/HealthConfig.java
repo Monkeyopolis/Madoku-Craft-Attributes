@@ -21,6 +21,7 @@ public final class HealthConfig {
 	private final double maximumHealthSurplusPoints;
 	private final double hungerHealthReductionThreshold;
 	private final double maximumHealthReduction;
+	private final double respawnHealthPercent;
 	private boolean dirty;
 
 	private HealthConfig(JsonFeatureSystem.ManagedFeature feature) {
@@ -40,6 +41,7 @@ public final class HealthConfig {
 		this.maximumHealthSurplusPoints = readSteppedBoundedDouble("maximumHealthSurplusPoints", 25.0, 20.0, 80.0, 5.0);
 		this.hungerHealthReductionThreshold = readSteppedBoundedDouble("hungerHealthReductionThreshold", 25.0, 10.0, 90.0, 5.0);
 		this.maximumHealthReduction = readSteppedBoundedDouble("maximumHealthReduction", 50.0, 20.0, 80.0, 5.0);
+		this.respawnHealthPercent = readSteppedBoundedDouble("respawnHealthPercent", 50.0, 0.0, 100.0, 5.0);
 
 		if (dirty) {
 			feature.save();
@@ -89,6 +91,10 @@ public final class HealthConfig {
 		return maximumHealthReduction;
 	}
 
+	public double getRespawnHealthPercent() {
+		return respawnHealthPercent;
+	}
+
 	private static JsonObject buildDefaults() {
 		JsonObject defaults = new JsonObject();
 		defaults.addProperty("enableFeature", true);
@@ -100,6 +106,7 @@ public final class HealthConfig {
 		defaults.addProperty("maximumHealthSurplusPoints", 25.0);
 		defaults.addProperty("hungerHealthReductionThreshold", 25.0);
 		defaults.addProperty("maximumHealthReduction", 50.0);
+		defaults.addProperty("respawnHealthPercent", 50.0);
 		return defaults;
 	}
 

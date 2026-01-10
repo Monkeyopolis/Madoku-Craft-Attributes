@@ -96,12 +96,24 @@ public final class MadokuHealthManager {
 		}
 		PlayerHealthState state = getState(player);
 		double maxHealth = config.getMaximumHealthPoints();
-		state.resetForRespawn(maxHealth, config.getPendingHealthTimer());
+		state.resetForRespawn(maxHealth, config.getPendingHealthTimer(), config.getRespawnHealthPercent());
 		ensurePlayerMaxHealth(player, maxHealth);
 		player.setHealth((float) state.getCurrentHealthPoints());
 		var hungerManager = player.getHungerManager();
 		hungerManager.setFoodLevel(MAX_HUNGER_LEVEL);
 		hungerManager.setSaturationLevel(MAX_HUNGER_LEVEL);
+	}
+
+	public void onPlayerDeath(ServerPlayerEntity player) {
+		if (player == null) {
+			return;
+		}
+		if (!config.isFeatureEnabled()) {
+			return;
+		}
+		PlayerHealthState state = getState(player);
+		double maxHealth = config.getMaximumHealthPoints();
+		state.resetForRespawn(maxHealth, config.getPendingHealthTimer(), config.getRespawnHealthPercent());
 	}
 
 	public void flush() {
@@ -361,8 +373,10 @@ public final class MadokuHealthManager {
 			return amount - toPending;
 		}
 
-		void resetForRespawn(double maxHealth, int pendingTimer) {
-			currentHealthPoints = clampAndRound(maxHealth, maxHealth);
+		void resetForRespawn(double maxHealth, int pendingTimer, double respawnHealthPercent) {
+			double percent = Math.min(100.0, Math.max(0.0, respawnHealthPercent));
+			double targetHealth = maxHealth * (percent / 100.0);
+			currentHealthPoints = clampAndRound(targetHealth, maxHealth);
 			pendingHealthPoints = 0.0;
 			healthSurplusPoints = 0.0;
 			this.pendingTimer = Math.max(1, pendingTimer);

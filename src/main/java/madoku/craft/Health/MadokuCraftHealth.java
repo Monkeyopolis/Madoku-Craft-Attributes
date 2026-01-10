@@ -4,12 +4,12 @@ import com.google.gson.JsonObject;
 
 import madoku.craft.Health.system.HealthConfig;
 import madoku.craft.Health.system.MadokuHealthManager;
+import madoku.craft.API.system.MadokuDeathSystem;
 import madoku.craft.API.system.MadokuSavingSystem;
 import madoku.craft.API.system.MadokuTickSystem;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 
 
@@ -42,7 +42,14 @@ public class MadokuCraftHealth implements ModInitializer {
 			}
 		});
 
-		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
+		MadokuDeathSystem.registerDeath((player, context) -> {
+			MadokuHealthManager manager = MadokuHealthManager.getInstance();
+			if (manager != null) {
+				manager.onPlayerDeath(player);
+			}
+		});
+
+		MadokuDeathSystem.registerRespawn((oldPlayer, newPlayer, alive, lastDeath) -> {
 			if (alive) {
 				return;
 			}
