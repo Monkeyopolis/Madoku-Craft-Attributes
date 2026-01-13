@@ -17,11 +17,11 @@ import java.util.UUID;
 
 /** Coordinates per-player health state, saving dirty changes through the API. */
 public final class MadokuHealthManager {
-	private static final int SAVE_INTERVAL_TICKS = 600;
+	private static final int SAVE_INTERVAL_TICKS = 60 * 20;
 	private static final int DEFAULT_MAX_HEALTH = 20;
 	private static final int MAX_HUNGER_LEVEL = 20;
-	private static final int PENDING_CLEAR_DURATION = 5 * 20;
-	private static final int SURPLUS_CLEAR_DURATION = 300;
+	private static final int PENDING_CLEAR_DURATION = 15 * 20;
+	private static final int SURPLUS_CLEAR_DURATION = 60 * 20;
 
 	private static MadokuHealthManager INSTANCE;
 
