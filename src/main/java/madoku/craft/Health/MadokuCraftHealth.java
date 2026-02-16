@@ -4,8 +4,8 @@ import com.google.gson.JsonObject;
 
 import madoku.craft.Health.system.HealthConfig;
 import madoku.craft.Health.system.MadokuHealthManager;
+import madoku.craft.API.system.MadokuDataSystem;
 import madoku.craft.API.system.MadokuDeathSystem;
-import madoku.craft.API.system.MadokuSavingSystem;
 import madoku.craft.API.system.MadokuTickSystem;
 
 import net.fabricmc.api.ModInitializer;
@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 
 public class MadokuCraftHealth implements ModInitializer {
 	public static final String MOD_ID = "madoku-craft-health";
+	private static final String HEALTH_DATA_ID = "madoku_craft_health";
 
 	// This logger is used to write text to the console and the log file.
 	// It is considered best practice to use your mod id as the logger's name.
@@ -26,12 +27,12 @@ public class MadokuCraftHealth implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-		HealthConfig config = HealthConfig.load();
-		MadokuSavingSystem.MadokuData data = MadokuSavingSystem.loadDeferred("madoku_craft_health", buildSavingDefaults());
-		MadokuHealthManager.initialize(config, data);
+		MadokuTickSystem.init();
+		MadokuDeathSystem.init();
 
+		HealthConfig config = HealthConfig.load();
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-			MadokuSavingSystem.reloadForWorld(data, "madoku_craft_health", buildSavingDefaults(), server);
+			MadokuDataSystem.MadokuData data = MadokuDataSystem.loadWorld(server, HEALTH_DATA_ID, buildSavingDefaults());
 			MadokuHealthManager.initialize(config, data);
 		});
 

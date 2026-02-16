@@ -4,11 +4,13 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
-import madoku.craft.API.system.JsonFeatureSystem;
+import madoku.craft.API.system.MadokuJSONSystem;
 
 /** Reads the JSON config that controls the custom health system. */
 public final class HealthConfig {
 	private static final String FEATURE_ID = "madoku_craft_health";
+	private static final String JSON_FOLDER_ID = "Health";
+	private static final String JSON_FILE_ID = FEATURE_ID;
 	private static final double DOUBLE_INCREMENT = 0.125;
 
 	private final JsonObject root;
@@ -24,7 +26,7 @@ public final class HealthConfig {
 	private final double respawnHealthPercent;
 	private boolean dirty;
 
-	private HealthConfig(JsonFeatureSystem.ManagedFeature feature) {
+	private HealthConfig(MadokuJSONSystem.ManagedJSON feature) {
 		this.root = feature.getRoot();
 
 		this.enableFeature = readBoolean("enableFeature", true);
@@ -52,7 +54,7 @@ public final class HealthConfig {
 	/** Creates a config that loads the defaults and persists any missing keys. */
 	public static HealthConfig load() {
 		JsonObject defaults = buildDefaults();
-		return new HealthConfig(JsonFeatureSystem.loadFeature(FEATURE_ID, defaults));
+		return new HealthConfig(MadokuJSONSystem.load(JSON_FOLDER_ID, JSON_FILE_ID, defaults));
 	}
 
 	public boolean isFeatureEnabled() {

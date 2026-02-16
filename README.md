@@ -1,17 +1,17 @@
 # Madoku Craft Health
 
-Madoku Craft Health replaces Minecraft's vanilla health system with a configurable health system that can be tinkered with.
+Madoku Craft Health is a configurable system that can be tinkered with.
 This is perfect for users that love to customize the game's difficulty.
-This can be done through the mod's config JSON file.
+This can be done through the MOD's config JSON file.
 
 ## Dependencies
 
 This mod requires Fabric API and Madoku Craft API in order to function properly.
-Madoku Craft API provides this mod's the JSON, data, TICK system.
+This MOD uses Madoku Craft API's JSON, DATA, Death, and TICK systems.
 
 ## Implementation
 
-The mod's health system checks if a player is missing health.
+The MOD's health system checks if a player is missing health.
 If they're missing health, the system checks the player's hunger.
 If the player has enough hunger, it converts it into health.
 If the player loses enough hunger, it reduces the player's health.

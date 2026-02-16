@@ -4,7 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
-import madoku.craft.API.system.MadokuSavingSystem;
+import madoku.craft.API.system.MadokuDataSystem;
 
 import net.minecraft.entity.attribute.EntityAttributeInstance;
 import net.minecraft.entity.attribute.EntityAttributes;
@@ -17,22 +17,22 @@ import java.util.UUID;
 
 /** Coordinates per-player health state, saving dirty changes through the API. */
 public final class MadokuHealthManager {
-	private static final int SAVE_INTERVAL_TICKS = 60 * 20;
+	private static final int SAVE_INTERVAL_TICKS = 180 * 20;
 	private static final int DEFAULT_MAX_HEALTH = 20;
 	private static final int MAX_HUNGER_LEVEL = 20;
-	private static final int PENDING_CLEAR_DURATION = 15 * 20;
-	private static final int SURPLUS_CLEAR_DURATION = 60 * 20;
+	private static final int PENDING_CLEAR_DURATION = 30 * 20;
+	private static final int SURPLUS_CLEAR_DURATION = 120 * 20;
 
 	private static MadokuHealthManager INSTANCE;
 
 	private final HealthConfig config;
-	private final MadokuSavingSystem.MadokuData savingData;
+	private final MadokuDataSystem.MadokuData savingData;
 	private final JsonObject playersRoot;
 	private final Map<UUID, PlayerHealthState> states = new HashMap<>();
 	private boolean dirty;
 	private int saveCooldown = SAVE_INTERVAL_TICKS;
 
-	private MadokuHealthManager(HealthConfig config, MadokuSavingSystem.MadokuData savingData) {
+	private MadokuHealthManager(HealthConfig config, MadokuDataSystem.MadokuData savingData) {
 		this.config = config;
 		this.savingData = savingData;
 		JsonObject root = savingData.getRoot();
@@ -47,7 +47,7 @@ public final class MadokuHealthManager {
 	}
 
 	/** Creates the singleton manager instance. */
-	public static void initialize(HealthConfig config, MadokuSavingSystem.MadokuData data) {
+	public static void initialize(HealthConfig config, MadokuDataSystem.MadokuData data) {
 		INSTANCE = new MadokuHealthManager(config, data);
 	}
 
