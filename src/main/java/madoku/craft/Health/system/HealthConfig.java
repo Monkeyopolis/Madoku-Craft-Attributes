@@ -20,7 +20,7 @@ public final class HealthConfig {
 	private final int pendingHealthTimer;
 	private final int hungerDepletionTimer;
 	private final double hungerDepletionThreshold;
-	private final double maximumHealthSurplusPoints;
+	private final double foodToPendingPercent;
 	private final double hungerHealthReductionThreshold;
 	private final double maximumHealthReduction;
 	private final double respawnHealthPercent;
@@ -32,7 +32,12 @@ public final class HealthConfig {
 		this.enableFeature = readBoolean("enableFeature", true);
 		this.maximumHealthPoints = readInt("maximumHealthPoints", 20);
 		this.pendingHealthMultiplier = readDouble("pendingHealthMultiplier", 1.0);
-		this.pendingHealthTimer = readInt("pendingHealthTimer", 10);
+		int pendingHealthTimerValue = readInt("pendingHealthTimer", 10);
+		this.pendingHealthTimer = Math.max(1, pendingHealthTimerValue);
+		if (this.pendingHealthTimer != pendingHealthTimerValue) {
+			root.addProperty("pendingHealthTimer", this.pendingHealthTimer);
+			dirty = true;
+		}
 		int hungerDepletionValue = readInt("hungerDepletionTimer", 10);
 		this.hungerDepletionTimer = Math.max(1, hungerDepletionValue);
 		if (this.hungerDepletionTimer != hungerDepletionValue) {
@@ -40,7 +45,7 @@ public final class HealthConfig {
 			dirty = true;
 		}
 		this.hungerDepletionThreshold = readSteppedBoundedDouble("hungerDepletionThreshold", 75.0, 10.0, 90.0, 5.0);
-		this.maximumHealthSurplusPoints = readSteppedBoundedDouble("maximumHealthSurplusPoints", 25.0, 20.0, 80.0, 5.0);
+		this.foodToPendingPercent = readSteppedBoundedDouble("foodToPendingPercent", 50.0, 0.0, 100.0, 5.0);
 		this.hungerHealthReductionThreshold = readSteppedBoundedDouble("hungerHealthReductionThreshold", 25.0, 10.0, 90.0, 5.0);
 		this.maximumHealthReduction = readSteppedBoundedDouble("maximumHealthReduction", 50.0, 20.0, 80.0, 5.0);
 		this.respawnHealthPercent = readSteppedBoundedDouble("respawnHealthPercent", 50.0, 0.0, 100.0, 5.0);
@@ -81,8 +86,8 @@ public final class HealthConfig {
 		return hungerDepletionThreshold;
 	}
 
-	public double getMaximumHealthSurplusPoints() {
-		return maximumHealthSurplusPoints;
+	public double getFoodToPendingPercent() {
+		return foodToPendingPercent;
 	}
 
 	public double getHungerHealthReductionThreshold() {
@@ -105,7 +110,7 @@ public final class HealthConfig {
 		defaults.addProperty("pendingHealthTimer", 10);
 		defaults.addProperty("hungerDepletionTimer", 10);
 		defaults.addProperty("hungerDepletionThreshold", 75.0);
-		defaults.addProperty("maximumHealthSurplusPoints", 25.0);
+		defaults.addProperty("foodToPendingPercent", 50.0);
 		defaults.addProperty("hungerHealthReductionThreshold", 25.0);
 		defaults.addProperty("maximumHealthReduction", 50.0);
 		defaults.addProperty("respawnHealthPercent", 50.0);

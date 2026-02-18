@@ -20,8 +20,8 @@ public final class MadokuHealthManager {
 	private static final int SAVE_INTERVAL_TICKS = 180 * 20;
 	private static final int DEFAULT_MAX_HEALTH = 20;
 	private static final int MAX_HUNGER_LEVEL = 20;
-	private static final int PENDING_CLEAR_DURATION = 30 * 20;
-	private static final int SURPLUS_CLEAR_DURATION = 120 * 20;
+	private static final int PENDING_IDLE_RESET_TICKS = 60 * 20;
+	private static final double HEALTH_STEP = 0.125;
 
 	private static MadokuHealthManager INSTANCE;
 
@@ -128,16 +128,18 @@ public final class MadokuHealthManager {
 			return false;
 		}
 		PlayerHealthState state = getState(player);
-		double maxHealth = config.getMaximumHealthPoints();
-		if (state.getCurrentHealthPoints() >= maxHealth) {
-			state.addHealthSurplusPoints(amount);
-			return true;
+		double configuredMaxHealth = config.getMaximumHealthPoints();
+		ensurePlayerMaxHealth(player, configuredMaxHealth);
+		state.setCurrentHealthPoints(player.getHealth(), configuredMaxHealth);
+		if (state.getCurrentHealthPoints() >= player.getMaxHealth()) {
+			return false;
 		}
-		double remainder = state.offerPendingPoints(amount, maxHealth, config.getPendingHealthTimer());
-		if (remainder > 0.0) {
-			state.addHealthSurplusPoints(remainder);
+		double pendingGain = amount * (config.getFoodToPendingPercent() / 100.0);
+		if (pendingGain <= 0.0) {
+			return false;
 		}
-		return amount > 0;
+		state.addPendingHealthPoints(pendingGain, config.getPendingHealthTimer());
+		return true;
 	}
 
 	private void tickPlayer(ServerPlayerEntity player) {
@@ -153,63 +155,40 @@ public final class MadokuHealthManager {
 			return;
 		}
 		PlayerHealthState state = getState(player);
-		double maxHealth = config.getMaximumHealthPoints();
-		ensurePlayerMaxHealth(player, maxHealth);
-		state.setCurrentHealthPoints(player.getHealth(), maxHealth);
+		double configuredMaxHealth = config.getMaximumHealthPoints();
+		ensurePlayerMaxHealth(player, configuredMaxHealth);
+		state.setCurrentHealthPoints(player.getHealth(), configuredMaxHealth);
 
-		state.tickSurplusClearTimer();
-		handlePendingConversion(state, player, maxHealth);
+		state.tickPendingIdleTimeout();
 
-		if (state.getCurrentHealthPoints() >= maxHealth) {
-			return;
-		}
-
-		if (state.getHealthSurplusPoints() > 0.0) {
-			double transferred = state.moveSurplusToPending(maxHealth, config.getPendingHealthTimer());
-			if (transferred > 0.0) {
-				return;
-			}
-		}
-
-		var hungerManager = player.getHungerManager();
-		int hungerThreshold = hungerLevelThreshold(config.getHungerDepletionThreshold());
-		boolean canDrainFood = hungerManager.getFoodLevel() >= hungerThreshold && state.getPendingCapacity(maxHealth) > 0.0;
-		if (canDrainFood && state.tickFoodDrain()) {
-			double remainder = state.offerPendingPoints(1.0, maxHealth, config.getPendingHealthTimer());
-			if (remainder > 0.0) {
-				state.addHealthSurplusPoints(remainder);
-			}
-			drainHunger(player, 1);
-			if (state.getPendingCapacity(maxHealth) <= 0.0) {
-				state.movePendingToSurplus();
-			}
-		} else if (!canDrainFood) {
-			state.resetFoodDrainTimer();
-		}
-	}
-
-	private void handlePendingConversion(PlayerHealthState state, ServerPlayerEntity player, double maxHealth) {
-		if (state.getPendingHealthPoints() <= 0) {
-			state.resetPendingTimer(config.getPendingHealthTimer());
-			state.resetPendingClearTimer();
-			return;
-		}
-
-		if (state.getCurrentHealthPoints() >= maxHealth) {
-			if (state.tickPendingClearTimer()) {
-				state.movePendingToSurplus();
-			}
-			return;
-		}
-
-		state.resetPendingClearTimer();
-		if (state.decrementPendingTimer()) {
-			state.consumePendingPoint();
+		if (state.tickPendingTimer(config.getPendingHealthTimer())
+				&& state.getPendingHealthPoints() > 0.0
+				&& state.getCurrentHealthPoints() < player.getMaxHealth()) {
+			state.consumePendingPoint(config.getPendingHealthTimer());
 			double addition = config.getPendingHealthMultiplier();
-			double target = Math.min(maxHealth, state.getCurrentHealthPoints() + addition);
-			state.setCurrentHealthPoints(target, maxHealth);
-			player.setHealth((float) state.getCurrentHealthPoints());
-			state.resetPendingTimer(config.getPendingHealthTimer());
+			if (addition > 0.0) {
+				double target = Math.min(player.getMaxHealth(), state.getCurrentHealthPoints() + addition);
+				state.setCurrentHealthPoints(target, configuredMaxHealth);
+				player.setHealth((float) state.getCurrentHealthPoints());
+			}
+		}
+
+		if (state.getCurrentHealthPoints() >= player.getMaxHealth()) {
+			state.resetFoodDrainTimer(config.getHungerDepletionTimer());
+			return;
+		}
+
+		if (state.tickFoodDrain(config.getHungerDepletionTimer())) {
+			var hungerManager = player.getHungerManager();
+			int hungerThreshold = hungerLevelThreshold(config.getHungerDepletionThreshold());
+			if (hungerManager.getFoodLevel() >= hungerThreshold) {
+				drainHunger(player, 1);
+				state.addPendingHealthPoints(1.0, config.getPendingHealthTimer());
+				ensurePlayerMaxHealth(player, configuredMaxHealth);
+				state.setCurrentHealthPoints(player.getHealth(), configuredMaxHealth);
+			} else {
+				state.resetFoodDrainTimer(config.getHungerDepletionTimer());
+			}
 		}
 	}
 
@@ -224,7 +203,7 @@ public final class MadokuHealthManager {
 		if (attribute == null) {
 			return;
 		}
-		double effectiveMax = calculateEffectiveMaxHealth(player, maxHealth);
+		double effectiveMax = roundToHealthStep(calculateEffectiveMaxHealth(player, maxHealth));
 		if (Double.compare(attribute.getBaseValue(), effectiveMax) != 0) {
 			attribute.setBaseValue(effectiveMax);
 		}
@@ -265,6 +244,19 @@ public final class MadokuHealthManager {
 		return Math.max(0, (int) Math.ceil((percent / 100.0) * MAX_HUNGER_LEVEL));
 	}
 
+	private static double roundToHealthStep(double value) {
+		if (Double.isNaN(value) || value <= 0.0) {
+			return 0.0;
+		}
+		double scaled = value / HEALTH_STEP;
+		double floor = Math.floor(scaled);
+		double lower = floor * HEALTH_STEP;
+		double upper = lower + HEALTH_STEP;
+		double lowerDiff = value - lower;
+		double upperDiff = upper - value;
+		return lowerDiff < upperDiff ? lower : upper;
+	}
+
 	private void resetPlayerMaxHealth(ServerPlayerEntity player) {
 		EntityAttributeInstance attribute = player.getAttributeInstance(EntityAttributes.MAX_HEALTH);
 		if (attribute == null) {
@@ -291,8 +283,7 @@ public final class MadokuHealthManager {
 				playersRoot.add(key, node);
 				markDirty();
 			}
-			double surplusCap = Math.max(0.0, (config.getMaximumHealthSurplusPoints() / 100.0) * MAX_HUNGER_LEVEL);
-		return PlayerHealthState.load(node, this::markDirty, config.getMaximumHealthPoints(), config.getPendingHealthTimer(), config.getHungerDepletionTimer(), surplusCap);
+			return PlayerHealthState.load(node, this::markDirty, config.getMaximumHealthPoints(), config.getPendingHealthTimer(), config.getHungerDepletionTimer());
 		});
 	}
 
@@ -306,43 +297,26 @@ public final class MadokuHealthManager {
 		private final Runnable markDirty;
 		private double currentHealthPoints;
 		private double pendingHealthPoints;
-		private double healthSurplusPoints;
 		private int pendingTimer;
-		private int pendingClearTimer;
-		private int surplusClearTimer;
+		private int pendingUnchangedTimer;
 		private final int hungerDepletionTimer;
-		private final double maxSurplusPoints;
 		private int foodDrainTimer;
 
-		private PlayerHealthState(JsonObject node, Runnable markDirty, double defaultHealth, int defaultPendingTimer, int hungerDepletionTimer, double maxSurplusPoints) {
+		private PlayerHealthState(JsonObject node, Runnable markDirty, double defaultHealth, int defaultPendingTimer, int hungerDepletionTimer) {
 			this.node = node;
 			this.markDirty = markDirty;
 			this.currentHealthPoints = loadDouble("currentHealthPoints", defaultHealth);
 			this.pendingHealthPoints = loadDouble("pendingHealthPoints", 0.0);
-			this.healthSurplusPoints = loadDouble("healthSurplusPoints", 0.0);
 			this.pendingTimer = Math.max(1, defaultPendingTimer);
-			this.pendingClearTimer = PENDING_CLEAR_DURATION;
-			this.surplusClearTimer = loadInt("surplusClearTimer", SURPLUS_CLEAR_DURATION);
+			this.pendingUnchangedTimer = PENDING_IDLE_RESET_TICKS;
 			this.hungerDepletionTimer = Math.max(1, hungerDepletionTimer);
-			this.maxSurplusPoints = Math.max(0.0, maxSurplusPoints);
 			this.foodDrainTimer = this.hungerDepletionTimer;
+			clearLegacySurplusFields();
 			persist();
 		}
 
-		static PlayerHealthState load(JsonObject node, Runnable markDirty, double defaultHealth, int defaultPendingTimer, int hungerDepletionTimer, double maxSurplusPoints) {
-			return new PlayerHealthState(node, markDirty, defaultHealth, defaultPendingTimer, hungerDepletionTimer, maxSurplusPoints);
-		}
-
-		double getCurrentHealthPoints() {
-			return currentHealthPoints;
-		}
-
-		double getPendingHealthPoints() {
-			return pendingHealthPoints;
-		}
-
-		double getHealthSurplusPoints() {
-			return healthSurplusPoints;
+		static PlayerHealthState load(JsonObject node, Runnable markDirty, double defaultHealth, int defaultPendingTimer, int hungerDepletionTimer) {
+			return new PlayerHealthState(node, markDirty, defaultHealth, defaultPendingTimer, hungerDepletionTimer);
 		}
 
 		void setCurrentHealthPoints(double value, double maxHealth) {
@@ -353,24 +327,12 @@ public final class MadokuHealthManager {
 			}
 		}
 
-		double getPendingCapacity(double maxHealth) {
-			double capacity = maxHealth - currentHealthPoints - pendingHealthPoints;
-			return Math.max(0.0, capacity);
+		double getCurrentHealthPoints() {
+			return currentHealthPoints;
 		}
-		
-		double offerPendingPoints(double amount, double maxHealth, int pendingTimer) {
-			if (amount <= 0.0) {
-				return 0.0;
-			}
-			double capacity = getPendingCapacity(maxHealth);
-			if (capacity <= 0.0) {
-				return amount;
-			}
-			double toPending = Math.min(capacity, amount);
-			addPendingHealthPoints(toPending);
-			resetPendingTimer(pendingTimer);
-			resetPendingClearTimer();
-			return amount - toPending;
+
+		double getPendingHealthPoints() {
+			return pendingHealthPoints;
 		}
 
 		void resetForRespawn(double maxHealth, int pendingTimer, double respawnHealthPercent) {
@@ -378,116 +340,80 @@ public final class MadokuHealthManager {
 			double targetHealth = maxHealth * (percent / 100.0);
 			currentHealthPoints = clampAndRound(targetHealth, maxHealth);
 			pendingHealthPoints = 0.0;
-			healthSurplusPoints = 0.0;
 			this.pendingTimer = Math.max(1, pendingTimer);
-			pendingClearTimer = PENDING_CLEAR_DURATION;
-			surplusClearTimer = SURPLUS_CLEAR_DURATION;
+			pendingUnchangedTimer = PENDING_IDLE_RESET_TICKS;
 			foodDrainTimer = hungerDepletionTimer;
 			persist();
 		}
 
-		void addPendingHealthPoints(double value) {
+		void addPendingHealthPoints(double value, int pendingTimer) {
+			if (value <= 0.0) {
+				return;
+			}
 			setPendingHealthPoints(pendingHealthPoints + value);
+			this.pendingTimer = Math.max(1, pendingTimer);
 		}
 
-		void consumePendingPoint() {
+		void consumePendingPoint(int pendingTimer) {
 			if (pendingHealthPoints <= 0.0) {
 				return;
 			}
 			setPendingHealthPoints(pendingHealthPoints - 1.0);
+			this.pendingTimer = Math.max(1, pendingTimer);
 		}
 
-		void movePendingToSurplus() {
+		boolean tickPendingTimer(int interval) {
+			int sanitizedInterval = Math.max(1, interval);
 			if (pendingHealthPoints <= 0.0) {
-				return;
+				pendingTimer = sanitizedInterval;
+				return false;
 			}
-			double amount = pendingHealthPoints;
-			setPendingHealthPoints(0);
-			resetPendingTimer(1);
-			resetPendingClearTimer();
-			addHealthSurplusPoints(amount);
-		}
-
-		double moveSurplusToPending(double maxHealth, int pendingTimer) {
-			double capacity = getPendingCapacity(maxHealth);
-			if (capacity <= 0.0 || healthSurplusPoints <= 0.0) {
-				return 0.0;
-			}
-			double amount = Math.min(1.0, Math.min(capacity, healthSurplusPoints));
-			if (amount <= 0.0) {
-				return 0.0;
-			}
-			consumeHealthSurplusPoints(amount);
-			addPendingHealthPoints(amount);
-			resetPendingTimer(pendingTimer);
-			resetPendingClearTimer();
-			return amount;
-		}
-
-		void addHealthSurplusPoints(double value) {
-			if (value <= 0.0) {
-				return;
-			}
-			resetSurplusClearTimer();
-			setHealthSurplusPoints(healthSurplusPoints + value);
-		}
-
-		void consumeHealthSurplusPoints(double value) {
-			if (value <= 0.0) {
-				return;
-			}
-			setHealthSurplusPoints(healthSurplusPoints - value);
-		}
-
-		boolean decrementPendingTimer() {
-			if (pendingTimer > 0) {
-				pendingTimer--;
-			}
-			return pendingTimer <= 0;
-		}
-
-		void resetPendingTimer(int timer) {
-			pendingTimer = Math.max(1, timer);
-		}
-
-		void resetPendingClearTimer() {
-			pendingClearTimer = PENDING_CLEAR_DURATION;
-		}
-
-		boolean tickPendingClearTimer() {
-			if (pendingClearTimer > 0) {
-				pendingClearTimer--;
-			}
-			return pendingClearTimer <= 0;
-		}
-
-		void tickSurplusClearTimer() {
-			if (healthSurplusPoints <= 0.0) {
-				surplusClearTimer = SURPLUS_CLEAR_DURATION;
-				return;
-			}
-			if (surplusClearTimer > 0) {
-				surplusClearTimer--;
-			}
-			if (surplusClearTimer <= 0) {
-				setHealthSurplusPoints(0);
-			}
-		}
-
-		void resetSurplusClearTimer() {
-			surplusClearTimer = SURPLUS_CLEAR_DURATION;
-		}
-
-		boolean tickFoodDrain() {
-			if (--foodDrainTimer <= 0) {
-				foodDrainTimer = hungerDepletionTimer;
+			if (--pendingTimer <= 0) {
+				pendingTimer = sanitizedInterval;
 				return true;
 			}
 			return false;
 		}
 
-		void resetFoodDrainTimer() {
-			foodDrainTimer = hungerDepletionTimer;
+		void tickPendingIdleTimeout() {
+			if (pendingHealthPoints <= 0.0) {
+				pendingUnchangedTimer = PENDING_IDLE_RESET_TICKS;
+				return;
+			}
+			if (pendingUnchangedTimer > 0) {
+				pendingUnchangedTimer--;
+			}
+			if (pendingUnchangedTimer <= 0) {
+				setPendingHealthPoints(0.0);
+			}
+		}
+
+		boolean tickFoodDrain(int interval) {
+			int sanitizedInterval = Math.max(1, interval);
+			if (--foodDrainTimer <= 0) {
+				foodDrainTimer = sanitizedInterval;
+				return true;
+			}
+			return false;
+		}
+
+		void resetFoodDrainTimer(int interval) {
+			foodDrainTimer = Math.max(1, interval);
+		}
+
+		private void clearLegacySurplusFields() {
+			boolean removed = false;
+			if (node.has("healthSurplusPoints")) {
+				node.remove("healthSurplusPoints");
+				removed = true;
+			}
+			if (node.has("surplusClearTimer")) {
+				node.remove("surplusClearTimer");
+				removed = true;
+			}
+			if (removed) {
+				markDirty.run();
+			}
 		}
 
 		private static double clampAndRound(double value, double max) {
@@ -503,15 +429,6 @@ public final class MadokuHealthManager {
 				value = primitive.getAsDouble();
 			}
 			return roundToIncrement(Math.max(0.0, value));
-		}
-
-		private int loadInt(String key, int fallback) {
-			JsonElement element = node.get(key);
-			int value = fallback;
-			if (element instanceof JsonPrimitive primitive && primitive.isNumber()) {
-				value = primitive.getAsInt();
-			}
-			return Math.max(0, value);
 		}
 
 		private static double roundToIncrement(double value) {
@@ -531,18 +448,7 @@ public final class MadokuHealthManager {
 			double sanitized = roundToIncrement(Math.max(0.0, value));
 			if (Double.compare(sanitized, pendingHealthPoints) != 0) {
 				pendingHealthPoints = sanitized;
-				persist();
-			}
-		}
-
-		private void setHealthSurplusPoints(double value) {
-			double cap = Math.max(0.0, maxSurplusPoints);
-			double sanitized = roundToIncrement(Math.min(cap, Math.max(0.0, value)));
-			if (Double.compare(sanitized, healthSurplusPoints) != 0) {
-				healthSurplusPoints = sanitized;
-				if (healthSurplusPoints <= 0.0) {
-					surplusClearTimer = SURPLUS_CLEAR_DURATION;
-				}
+				pendingUnchangedTimer = PENDING_IDLE_RESET_TICKS;
 				persist();
 			}
 		}
@@ -550,8 +456,6 @@ public final class MadokuHealthManager {
 		private void persist() {
 			node.addProperty("currentHealthPoints", currentHealthPoints);
 			node.addProperty("pendingHealthPoints", pendingHealthPoints);
-			node.addProperty("healthSurplusPoints", healthSurplusPoints);
-			node.addProperty("surplusClearTimer", surplusClearTimer);
 			markDirty.run();
 		}
 
