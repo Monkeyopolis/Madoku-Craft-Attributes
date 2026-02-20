@@ -6,6 +6,7 @@ import madoku.craft.Health.system.HealthConfig;
 import madoku.craft.Health.system.MadokuHealthManager;
 import madoku.craft.API.system.MadokuDataSystem;
 import madoku.craft.API.system.MadokuDeathSystem;
+import madoku.craft.API.system.MadokuInfoDebugSystem;
 import madoku.craft.API.system.MadokuTickSystem;
 
 import net.fabricmc.api.ModInitializer;
@@ -19,6 +20,7 @@ import org.slf4j.LoggerFactory;
 public class MadokuCraftHealth implements ModInitializer {
 	public static final String MOD_ID = "madoku-craft-health";
 	private static final String HEALTH_DATA_ID = "madoku_craft_health";
+	private static final String LOG_SOURCE = "HEALTH";
 
 	// This logger is used to write text to the console and the log file.
 	// It is considered best practice to use your mod id as the logger's name.
@@ -34,6 +36,7 @@ public class MadokuCraftHealth implements ModInitializer {
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
 			MadokuDataSystem.MadokuData data = MadokuDataSystem.loadWorld(server, HEALTH_DATA_ID, buildSavingDefaults());
 			MadokuHealthManager.initialize(config, data);
+			MadokuInfoDebugSystem.info(LOGGER, LOG_SOURCE, "Health data ready at {}", data.getPath());
 		});
 
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
@@ -56,7 +59,7 @@ public class MadokuCraftHealth implements ModInitializer {
 			}
 			MadokuHealthManager manager = MadokuHealthManager.getInstance();
 			if (manager != null) {
-				LOGGER.info("custom health reset triggered for {} after respawn", newPlayer.getName().getString());
+				MadokuInfoDebugSystem.info(LOGGER, LOG_SOURCE, "Custom health reset triggered for {} after respawn", newPlayer.getName().getString());
 				manager.onPlayerRespawn(newPlayer);
 			}
 		});
@@ -75,7 +78,7 @@ public class MadokuCraftHealth implements ModInitializer {
 			}
 		});
 
-		LOGGER.info("Madoku Craft Health initialized (feature enabled: {}).", config.isFeatureEnabled());
+		MadokuInfoDebugSystem.info(LOGGER, LOG_SOURCE, "Madoku Craft Health initialized (feature enabled: {}).", config.isFeatureEnabled());
 	}
 
 	private static JsonObject buildSavingDefaults() {
