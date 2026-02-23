@@ -34,7 +34,12 @@ public class MadokuCraftHealth implements ModInitializer {
 
 		HealthConfig config = HealthConfig.load();
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-			MadokuDataSystem.MadokuData data = MadokuDataSystem.loadWorld(server, HEALTH_DATA_ID, buildSavingDefaults());
+			MadokuDataSystem.MadokuData data = MadokuDataSystem.load(
+				HEALTH_DATA_ID,
+				MadokuDataSystem.StorageScope.WORLD,
+				buildSavingDefaults(),
+				server
+			);
 			MadokuHealthManager.initialize(config, data);
 			MadokuInfoDebugSystem.info(LOGGER, LOG_SOURCE, "Health data ready at {}", data.getPath());
 		});
@@ -74,7 +79,7 @@ public class MadokuCraftHealth implements ModInitializer {
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			MadokuHealthManager manager = MadokuHealthManager.getInstance();
 			if (manager != null) {
-				manager.flush();
+				manager.flushNow();
 			}
 		});
 

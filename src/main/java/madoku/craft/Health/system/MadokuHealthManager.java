@@ -118,6 +118,13 @@ public final class MadokuHealthManager {
 
 	public void flush() {
 		if (dirty) {
+			savingData.saveQueued();
+			dirty = false;
+		}
+	}
+
+	public void flushNow() {
+		if (dirty) {
 			savingData.save();
 			dirty = false;
 		}
@@ -311,7 +318,6 @@ public final class MadokuHealthManager {
 			this.pendingUnchangedTimer = PENDING_IDLE_RESET_TICKS;
 			this.hungerDepletionTimer = Math.max(1, hungerDepletionTimer);
 			this.foodDrainTimer = this.hungerDepletionTimer;
-			clearLegacySurplusFields();
 			persist();
 		}
 
@@ -399,21 +405,6 @@ public final class MadokuHealthManager {
 
 		void resetFoodDrainTimer(int interval) {
 			foodDrainTimer = Math.max(1, interval);
-		}
-
-		private void clearLegacySurplusFields() {
-			boolean removed = false;
-			if (node.has("healthSurplusPoints")) {
-				node.remove("healthSurplusPoints");
-				removed = true;
-			}
-			if (node.has("surplusClearTimer")) {
-				node.remove("surplusClearTimer");
-				removed = true;
-			}
-			if (removed) {
-				markDirty.run();
-			}
 		}
 
 		private static double clampAndRound(double value, double max) {
