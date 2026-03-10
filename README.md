@@ -1,4 +1,4 @@
-## Madoku Craft: Health
+## Madoku Craft: Attributes
 
 Madoku Craft: Attributes is a configurable attribute system.
 You can modify attributes to customize the game experience to your needs.

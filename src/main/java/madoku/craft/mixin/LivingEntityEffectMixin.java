@@ -1,6 +1,6 @@
 package madoku.craft.mixin;
 
-import madoku.craft.health.MadokuHealth;
+import madoku.craft.attributes.MadokuHealth;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;

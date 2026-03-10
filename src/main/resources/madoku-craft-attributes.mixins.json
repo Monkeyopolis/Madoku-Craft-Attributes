@@ -5,6 +5,7 @@
   "mixins": [
     "EffectCommandsSaturationDurationMixin",
     "FoodDataStarvationDamageMixin",
+    "NaturalRegenGameRuleLockMixin",
     "ItemFoodGateMixin",
     "LivingEntityArmorDamageMixin",
     "LivingEntityEffectAttributeOverrideMixin",

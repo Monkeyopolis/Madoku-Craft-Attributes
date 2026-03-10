@@ -1,11 +1,11 @@
-package madoku.craft.health;
+package madoku.craft.attributes;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
-import madoku.craft.MadokuCraftHealth;
+import madoku.craft.MadokuCraftAttributes;
 import madoku.craft.clock.MadokuGameplayClock;
 import madoku.craft.config.StaticJsonSystem;
 import madoku.craft.data.MadokuData;
@@ -42,17 +42,17 @@ public final class MadokuHealth {
 	private static final float HEALTH_ROUND_STEP = 0.125f;
 	private static final int VANILLA_MAX_HUNGER_POINTS = 20;
 
-	private static final String HEALTH_CONFIG_FOLDER_NAME = "madoku-craft-health";
-	private static final String HEALTH_CONFIG_FILE_NAME = "madoku-health";
+	private static final String ATTRIBUTES_CONFIG_FOLDER_NAME = "madoku-craft-health";
+	private static final String ATTRIBUTES_CONFIG_FILE_NAME = "madoku-health";
 	private static final String DATA_FOLDER_NAME = "madoku-craft-health";
 	private static final String DATA_FILE_NAME = "madoku-health";
 	private static final String TASK_TYPE_HEALTH_TICK = "health_tick";
 	private static final float DEATH_RESPAWN_HEALTH_RATIO = 0.5f;
 	private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 	private static final Identifier LOW_HUNGER_MAX_HEALTH_MODIFIER_ID =
-		Identifier.fromNamespaceAndPath(MadokuCraftHealth.MOD_ID, "madoku_health_low_hunger_max_health");
+		Identifier.fromNamespaceAndPath(MadokuCraftAttributes.MOD_ID, "madoku_health_low_hunger_max_health");
 	private static final Identifier HEALTH_BOOST_MAX_HEALTH_MODIFIER_ID =
-		Identifier.fromNamespaceAndPath(MadokuCraftHealth.MOD_ID, "madoku_health_health_boost_max_health");
+		Identifier.fromNamespaceAndPath(MadokuCraftAttributes.MOD_ID, "madoku_health_health_boost_max_health");
 	private static final long WITHER_TICK_INTERVAL = 20L;
 	private static final long REGEN_TICK_INTERVAL = 20L;
 	private static final long POISON_TICK_INTERVAL = 10L;
@@ -832,8 +832,8 @@ public final class MadokuHealth {
 		Settings fallback = Settings.defaults();
 
 		try {
-			Path directory = StaticJsonSystem.getOrCreateGlobalSystemDirectory(HEALTH_CONFIG_FOLDER_NAME);
-			Path configFile = resolveJsonFile(directory, HEALTH_CONFIG_FILE_NAME);
+			Path directory = StaticJsonSystem.getOrCreateGlobalSystemDirectory(ATTRIBUTES_CONFIG_FOLDER_NAME);
+			Path configFile = resolveJsonFile(directory, ATTRIBUTES_CONFIG_FILE_NAME);
 			JsonObject normalized = StaticJsonSystem.ensureManagedFile(configFile, defaults);
 			Settings loaded = Settings.fromJson(normalized);
 			StaticJsonSystem.writeManagedFile(configFile, loaded.toConfigJson(), defaults);

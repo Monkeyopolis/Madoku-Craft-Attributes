@@ -1,7 +1,7 @@
 package madoku.craft;
 
 import madoku.craft.armor.MadokuArmor;
-import madoku.craft.health.MadokuHealth;
+import madoku.craft.attributes.MadokuHealth;
 import madoku.craft.hunger.MadokuHunger;
 import madoku.craft.network.HungerStateSync;
 import madoku.craft.oxygen.MadokuOxygen;
@@ -9,8 +9,8 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 
-public final class MadokuCraftHealth implements ModInitializer {
-	public static final String MOD_ID = "madoku-craft-health";
+public final class MadokuCraftAttributes implements ModInitializer {
+	public static final String MOD_ID = "madoku-craft-attributes";
 
 	@Override
 	public void onInitialize() {
