@@ -19,6 +19,7 @@
   ],
   "client": [
     "client.ItemFoodClientGateMixin",
+    "client.LocalPlayerSprintGateMixin",
     "client.PlayerEatClientGateMixin"
   ],
   "injectors": {

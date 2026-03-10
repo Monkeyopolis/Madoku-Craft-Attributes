@@ -253,7 +253,7 @@ public final class MadokuOxygen {
 		UUID playerId = player.getUUID();
 		CUSTOM_DROWNING_DAMAGE_PLAYERS.add(playerId);
 		try {
-			player.hurtServer(player.level(), player.damageSources().drown(), (float) settings.drowningDamageAmount);
+			player.hurt(player.damageSources().drown(), (float) settings.drowningDamageAmount);
 		} finally {
 			CUSTOM_DROWNING_DAMAGE_PLAYERS.remove(playerId);
 		}

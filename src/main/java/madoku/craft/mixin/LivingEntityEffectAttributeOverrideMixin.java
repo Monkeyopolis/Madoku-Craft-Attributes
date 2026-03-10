@@ -10,8 +10,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
-import java.util.Collection;
-
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityEffectAttributeOverrideMixin {
 	@Redirect(
@@ -76,16 +74,16 @@ public abstract class LivingEntityEffectAttributeOverrideMixin {
 	}
 
 	@Redirect(
-		method = "onEffectsRemoved",
+		method = "onEffectRemoved",
 		at = @At(
 			value = "INVOKE",
 			target = "Lnet/minecraft/world/effect/MobEffect;removeAttributeModifiers(Lnet/minecraft/world/entity/ai/attributes/AttributeMap;)V"
 		)
 	)
-	private void madokuCraft$overrideOnEffectsRemovedAttributes(
+	private void madokuCraft$overrideOnEffectRemovedAttributes(
 		MobEffect effect,
 		AttributeMap attributes,
-		Collection<MobEffectInstance> effects
+		MobEffectInstance effectInstance
 	) {
 		if (MadokuHealth.shouldOverrideVanillaEffectAttributes((LivingEntity) (Object) this, effect)) {
 			return;

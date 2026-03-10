@@ -12,7 +12,7 @@ import madoku.craft.data.MadokuData;
 import madoku.craft.debug.MadokuDebug;
 import madoku.craft.hunger.MadokuHunger;
 import madoku.craft.scheduler.MadokuScheduler;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -24,7 +24,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.food.FoodData;
-import net.minecraft.world.level.gamerules.GameRules;
+import net.minecraft.world.level.GameRules;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,10 +49,10 @@ public final class MadokuHealth {
 	private static final String TASK_TYPE_HEALTH_TICK = "health_tick";
 	private static final float DEATH_RESPAWN_HEALTH_RATIO = 0.5f;
 	private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
-	private static final Identifier LOW_HUNGER_MAX_HEALTH_MODIFIER_ID =
-		Identifier.fromNamespaceAndPath(MadokuCraftAttributes.MOD_ID, "madoku_health_low_hunger_max_health");
-	private static final Identifier HEALTH_BOOST_MAX_HEALTH_MODIFIER_ID =
-		Identifier.fromNamespaceAndPath(MadokuCraftAttributes.MOD_ID, "madoku_health_health_boost_max_health");
+	private static final ResourceLocation LOW_HUNGER_MAX_HEALTH_MODIFIER_ID =
+		ResourceLocation.fromNamespaceAndPath(MadokuCraftAttributes.MOD_ID, "madoku_health_low_hunger_max_health");
+	private static final ResourceLocation HEALTH_BOOST_MAX_HEALTH_MODIFIER_ID =
+		ResourceLocation.fromNamespaceAndPath(MadokuCraftAttributes.MOD_ID, "madoku_health_health_boost_max_health");
 	private static final long WITHER_TICK_INTERVAL = 20L;
 	private static final long REGEN_TICK_INTERVAL = 20L;
 	private static final long POISON_TICK_INTERVAL = 10L;
@@ -248,7 +248,7 @@ public final class MadokuHealth {
 
 	private static void applyWitherTick(ServerPlayer player, long gameplayTick, int witherLevel) {
 		float damage = WITHER_DAMAGE_PER_LEVEL * Math.max(1, witherLevel);
-		player.hurtServer(player.level(), player.damageSources().wither(), damage);
+		player.hurt(player.damageSources().wither(), damage);
 		if (MadokuDebug.shouldEmit(MadokuDebug.Domain.PLAYER, "health.effect_wither_tick")) {
 			MadokuDebug.event("health.effect_wither_tick", MadokuDebug.Domain.PLAYER)
 				.side(MadokuDebug.Side.SERVER)
@@ -608,8 +608,8 @@ public final class MadokuHealth {
 
 	private static void disableVanillaNaturalRegen(MinecraftServer server, long gameplayTick) {
 		for (ServerLevel level : server.getAllLevels()) {
-			boolean wasEnabled = level.getGameRules().get(GameRules.NATURAL_HEALTH_REGENERATION);
-			level.getGameRules().set(GameRules.NATURAL_HEALTH_REGENERATION, false, server);
+			boolean wasEnabled = level.getGameRules().getBoolean(GameRules.RULE_NATURAL_REGENERATION);
+			level.getGameRules().getRule(GameRules.RULE_NATURAL_REGENERATION).set(false, server);
 			if (wasEnabled && MadokuDebug.shouldEmit(MadokuDebug.Domain.PLAYER, "health.vanilla_regen_disabled")) {
 				MadokuDebug.event("health.vanilla_regen_disabled", MadokuDebug.Domain.PLAYER)
 					.side(MadokuDebug.Side.SERVER)
@@ -1086,4 +1086,3 @@ public final class MadokuHealth {
 		}
 	}
 }
-

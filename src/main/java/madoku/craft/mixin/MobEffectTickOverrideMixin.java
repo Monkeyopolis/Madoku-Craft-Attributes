@@ -2,7 +2,6 @@ package madoku.craft.mixin;
 
 import madoku.craft.attributes.MadokuHealth;
 import madoku.craft.hunger.MadokuHunger;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
@@ -20,7 +19,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class MobEffectTickOverrideMixin {
 	@Inject(method = "applyEffectTick", at = @At("HEAD"), cancellable = true)
 	private void madokuCraft$overrideVanillaEffectTick(
-		ServerLevel level,
 		LivingEntity livingEntity,
 		int amplifier,
 		CallbackInfoReturnable<Boolean> cir

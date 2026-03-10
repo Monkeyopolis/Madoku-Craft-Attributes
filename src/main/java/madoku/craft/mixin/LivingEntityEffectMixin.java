@@ -10,8 +10,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.Collection;
-
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityEffectMixin {
 	@Inject(method = "onEffectAdded", at = @At("TAIL"))
@@ -28,8 +26,8 @@ public abstract class LivingEntityEffectMixin {
 		}
 	}
 
-	@Inject(method = "onEffectsRemoved", at = @At("TAIL"))
-	private void madokuCraft$onEffectsRemoved(Collection<MobEffectInstance> effects, CallbackInfo ci) {
+	@Inject(method = "onEffectRemoved", at = @At("TAIL"))
+	private void madokuCraft$onEffectRemoved(MobEffectInstance effect, CallbackInfo ci) {
 		if ((Object) this instanceof ServerPlayer player) {
 			MadokuHealth.handlePlayerEffectsChanged(player);
 		}
