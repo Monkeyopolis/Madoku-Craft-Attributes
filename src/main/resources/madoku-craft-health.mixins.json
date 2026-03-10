@@ -1,15 +1,26 @@
 {
-	"required": true,
-	"package": "madoku.craft.Health.mixin",
-	"compatibilityLevel": "JAVA_21",
-	"mixins": [
-		"ItemStackMixin",
-		"PlayerEntityMixin"
-	],
-	"injectors": {
-		"defaultRequire": 1
-	},
-	"overwrites": {
-		"requireAnnotations": true
-	}
+  "required": true,
+  "package": "madoku.craft.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "EffectCommandsSaturationDurationMixin",
+    "FoodDataStarvationDamageMixin",
+    "ItemFoodGateMixin",
+    "LivingEntityArmorDamageMixin",
+    "LivingEntityEffectAttributeOverrideMixin",
+    "LivingEntityEffectMixin",
+    "LivingEntityMaxAirSupplyMixin",
+    "MobEffectTickOverrideMixin",
+    "PlayerEatGateMixin",
+    "PlayerSprintGateMixin",
+    "SaturationMobEffectMixin",
+    "ServerPlayerDrowningDamageMixin"
+  ],
+  "client": [
+    "client.ItemFoodClientGateMixin",
+    "client.PlayerEatClientGateMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
 }

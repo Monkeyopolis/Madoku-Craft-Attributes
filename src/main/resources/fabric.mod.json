@@ -3,7 +3,7 @@
 	"id": "madoku-craft-health",
 	"version": "${version}",
 	"name": "Madoku Craft Health",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "Ports Mother MOD health, hunger, armor, and oxygen systems on top of Madoku Craft API.",
 	"authors": [
 		"Me!"
 	],
@@ -16,7 +16,10 @@
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"madoku.craft.Health.MadokuCraftHealth"
+			"madoku.craft.MadokuCraftHealth"
+		],
+		"client": [
+			"madoku.craft.MadokuCraftHealthClient"
 		]
 	},
 	"mixins": [
