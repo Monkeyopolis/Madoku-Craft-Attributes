@@ -74,7 +74,6 @@ public abstract class ItemFoodGateMixin {
 			cir.setReturnValue(stack);
 			return;
 		}
-
 		if (MadokuHunger.isEnabled()) {
 			FoodData foodData = serverPlayer.getFoodData();
 			MADOKU_PRE_CONSUME_SERVER_FOOD_STATE.put(
@@ -112,15 +111,18 @@ public abstract class ItemFoodGateMixin {
 		if (!(entity instanceof ServerPlayer serverPlayer) || !MadokuHunger.isEnabled()) {
 			return;
 		}
-
 		FoodSnapshot snapshot = MADOKU_PRE_CONSUME_SERVER_FOOD_STATE.remove(serverPlayer.getUUID());
 		if (snapshot == null) {
 			return;
 		}
-
 		FoodData foodData = serverPlayer.getFoodData();
 		foodData.setFoodLevel(snapshot.foodLevel());
 		foodData.setSaturation(snapshot.saturationLevel());
+
+		if (!MadokuHunger.canConsumeFood(serverPlayer, false)) {
+			return;
+		}
+
 		MadokuHunger.onFoodConsumed(serverPlayer, Math.max(0, food.nutrition()));
 	}
 
