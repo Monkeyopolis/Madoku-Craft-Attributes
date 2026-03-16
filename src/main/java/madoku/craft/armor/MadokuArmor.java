@@ -16,11 +16,11 @@ import java.nio.file.Path;
 public final class MadokuArmor {
 	private static final Logger LOGGER = LoggerFactory.getLogger(MadokuArmor.class);
 
-	private static final double DAMAGE_ROUND_INCREMENT = 0.125d;
+	private static final double DAMAGE_ROUND_INCREMENT = 0.05d;
 	private static final double ARMOR_POINT_STEP = 0.25d;
 	private static final double ARMOR_POINT_DAMAGE_REDUCTION = 0.05d;
 	private static final double TOUGHNESS_POINT_STEP = 0.25d;
-	private static final double TOUGHNESS_PERCENT_REDUCTION = 0.0125d;
+	private static final double TOUGHNESS_PERCENT_REDUCTION = 0.01d;
 	private static final boolean DEFAULT_ENABLED = true;
 	private static final int DEFAULT_ARMOR_POINTS_CLAMP_LIMIT = 100;
 	private static final int DEFAULT_ARMOR_TOUGHNESS_POINTS_CLAMP_LIMIT = 100;

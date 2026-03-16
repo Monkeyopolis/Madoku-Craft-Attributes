@@ -3,12 +3,13 @@ package madoku.craft.hunger;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import madoku.craft.clock.MadokuGameplayClock;
+import madoku.craft.clock.MadokuClock;
 import madoku.craft.config.StaticJsonSystem;
 import madoku.craft.data.MadokuData;
 import madoku.craft.debug.MadokuDebug;
 import madoku.craft.network.HungerStateSync;
 import madoku.craft.scheduler.MadokuScheduler;
+import madoku.craft.time.MadokuTime;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.minecraft.world.effect.MobEffect;
@@ -85,7 +86,7 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		MadokuData.createWorldData(server, DATA_FOLDER_NAME, DATA_FILE_NAME, createDefaultData());
 		JsonObject data = MadokuData.loadWorldData(server, DATA_FOLDER_NAME, DATA_FILE_NAME);
 		applyPersistedData(data);
-		lastAutosaveBucket = Math.floorDiv(MadokuGameplayClock.getTicks(), AUTOSAVE_INTERVAL_TICKS);
+		lastAutosaveBucket = Math.floorDiv(MadokuClock.getGameplayTicks(), AUTOSAVE_INTERVAL_TICKS);
 	}
 
 	public static void autosavePersistedData(MinecraftServer server) {
@@ -93,7 +94,7 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 			return;
 		}
 
-		long bucket = Math.floorDiv(MadokuGameplayClock.getTicks(), AUTOSAVE_INTERVAL_TICKS);
+		long bucket = Math.floorDiv(MadokuClock.getGameplayTicks(), AUTOSAVE_INTERVAL_TICKS);
 		if (bucket != lastAutosaveBucket) {
 			lastAutosaveBucket = bucket;
 			savePersistedData(server);
@@ -140,6 +141,7 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		}
 		return effect == MobEffects.HUNGER.value();
 	}
+
 	public static boolean canConsumeFood(ServerPlayer player, boolean ignoreHunger) {
 		if (player == null || !settings.enabled || ignoreHunger) {
 			return true;
@@ -151,6 +153,7 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		long total = (long) Math.max(0, state.hungerPoints) + (long) Math.max(0, state.pendingHunger);
 		return total < maxHungerPoints;
 	}
+
 	public static boolean canConsumeFoodClient(boolean ignoreHunger) {
 		if (ignoreHunger || !settings.enabled) {
 			return true;
@@ -168,15 +171,15 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		initializeHungerFromPlayer(player, state, maxHungerPoints);
 
 		state.pendingHunger = safeAdd(state.pendingHunger, nutrition);
-		long gameplayTick = MadokuGameplayClock.getTicks();
+		long gameplayTick = MadokuClock.getGameplayTicks();
 		state.lastPendingActivityTick = gameplayTick;
 		scheduleNextPendingAllocation(state, gameplayTick);
 		applyFoodState(player, state.hungerPoints);
 		syncHudState(player, state, maxHungerPoints);
 		requestHungerProcessing(((net.minecraft.server.level.ServerLevel) player.level()).getServer(), player.getUUID(), 1L);
 
-		if (MadokuDebug.shouldEmit(MadokuDebug.Domain.PLAYER, "hunger.pending_collected")) {
-			MadokuDebug.event("hunger.pending_collected", MadokuDebug.Domain.PLAYER)
+		if (MadokuDebug.shouldEmit(MadokuDebug.Domain.HUNGER, "hunger.pending_collected")) {
+			MadokuDebug.event("hunger.pending_collected", MadokuDebug.Domain.HUNGER)
 				.side(MadokuDebug.Side.SERVER)
 				.tick(gameplayTick)
 				.world(player.level().dimension().toString())
@@ -192,6 +195,9 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		if (player == null || amount <= 0) {
 			return 0;
 		}
+		if (isExemptFromHungerDrain(player)) {
+			return 0;
+		}
 
 		if (!settings.enabled) {
 			return drainVanillaFood(player, amount);
@@ -205,8 +211,11 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 			return 0;
 		}
 		state.hungerPoints -= drained;
-		state.lastPendingActivityTick = MadokuGameplayClock.getTicks();
+		state.lastPendingActivityTick = MadokuClock.getGameplayTicks();
 		applyFoodState(player, state.hungerPoints);
+		state.lastSyncedCurrentHunger = Integer.MIN_VALUE;
+		state.lastSyncedPendingHunger = Integer.MIN_VALUE;
+		state.lastSyncedMaxHunger = Integer.MIN_VALUE;
 		syncHudState(player, state, maxHungerPoints);
 		requestHungerProcessing(((net.minecraft.server.level.ServerLevel) player.level()).getServer(), player.getUUID(), 1L);
 		return drained;
@@ -221,7 +230,7 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		PlayerState state = PLAYER_STATES.computeIfAbsent(player.getUUID(), ignored -> new PlayerState());
 		initializeHungerFromPlayer(player, state, maxHungerPoints);
 
-		long gameplayTick = MadokuGameplayClock.getTicks();
+		long gameplayTick = MadokuClock.getGameplayTicks();
 		if (state.lastSaturationGainTick != Long.MIN_VALUE
 			&& gameplayTick - state.lastSaturationGainTick < SATURATION_HUNGER_INTERVAL_TICKS) {
 			return true;
@@ -238,8 +247,8 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 			applyFoodState(player, state.hungerPoints);
 			syncHudState(player, state, maxHungerPoints);
 
-			if (MadokuDebug.shouldEmit(MadokuDebug.Domain.PLAYER, "hunger.saturation_applied")) {
-				MadokuDebug.event("hunger.saturation_applied", MadokuDebug.Domain.PLAYER)
+			if (MadokuDebug.shouldEmit(MadokuDebug.Domain.HUNGER, "hunger.saturation_applied")) {
+				MadokuDebug.event("hunger.saturation_applied", MadokuDebug.Domain.HUNGER)
 					.side(MadokuDebug.Side.SERVER)
 					.tick(gameplayTick)
 					.world(player.level().dimension().toString())
@@ -262,6 +271,9 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		PlayerState state = PLAYER_STATES.computeIfAbsent(player.getUUID(), ignored -> new PlayerState());
 		initializeHungerFromPlayer(player, state, settings.maximumHungerPoints);
 		applyFoodState(player, state.hungerPoints);
+		state.lastSyncedCurrentHunger = Integer.MIN_VALUE;
+		state.lastSyncedPendingHunger = Integer.MIN_VALUE;
+		state.lastSyncedMaxHunger = Integer.MIN_VALUE;
 		syncHudState(player, state, settings.maximumHungerPoints);
 		requestHungerProcessing(((net.minecraft.server.level.ServerLevel) player.level()).getServer(), player.getUUID(), 1L);
 	}
@@ -280,10 +292,13 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		state.timeProgressTicks = 0;
 		state.nextPendingAllocationTick = 0L;
 		state.lastSaturationGainTick = Long.MIN_VALUE;
-		state.lastObservedGameplayTick = MadokuGameplayClock.getTicks();
-		state.lastPendingActivityTick = MadokuGameplayClock.getTicks();
+		state.lastObservedAbsoluteDayTime = MadokuTime.getCurrentAbsoluteDayTime();
+		state.lastPendingActivityTick = MadokuClock.getGameplayTicks();
 		state.clearPosition();
 		applyFoodState(newPlayer, state.hungerPoints);
+		state.lastSyncedCurrentHunger = Integer.MIN_VALUE;
+		state.lastSyncedPendingHunger = Integer.MIN_VALUE;
+		state.lastSyncedMaxHunger = Integer.MIN_VALUE;
 		syncHudState(newPlayer, state, maxHungerPoints);
 		requestHungerProcessing(((net.minecraft.server.level.ServerLevel) newPlayer.level()).getServer(), newPlayer.getUUID(), 1L);
 	}
@@ -292,16 +307,19 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		if (!settings.enabled || !(player instanceof ServerPlayer serverPlayer)) {
 			return;
 		}
+		if (isExemptFromHungerDrain(serverPlayer)) {
+			return;
+		}
 
 		PlayerState state = PLAYER_STATES.computeIfAbsent(serverPlayer.getUUID(), ignored -> new PlayerState());
 		initializeHungerFromPlayer(serverPlayer, state, settings.maximumHungerPoints);
 		state.blockBreakProgress++;
-		long gameplayTick = MadokuGameplayClock.getTicks();
+		long gameplayTick = MadokuClock.getGameplayTicks();
 		while (state.blockBreakProgress >= settings.blockBreakGoal && settings.blockBreakGoal > 0) {
 			state.blockBreakProgress -= settings.blockBreakGoal;
 			int drained = drainStateHunger(state, 1);
-			if (drained > 0 && MadokuDebug.shouldEmit(MadokuDebug.Domain.PLAYER, "hunger.drain_block_goal")) {
-				MadokuDebug.event("hunger.drain_block_goal", MadokuDebug.Domain.PLAYER)
+			if (drained > 0 && MadokuDebug.shouldEmit(MadokuDebug.Domain.HUNGER, "hunger.drain_block_goal")) {
+				MadokuDebug.event("hunger.drain_block_goal", MadokuDebug.Domain.HUNGER)
 					.side(MadokuDebug.Side.SERVER)
 					.tick(gameplayTick)
 					.world(serverPlayer.level().dimension().toString())
@@ -334,10 +352,10 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		PLAYER_SCHEDULER_IDS.put(playerId, context.getSchedulerId());
 		SCHEDULED_PLAYERS.remove(playerId);
 		Long lastProcessed = LAST_PROCESSED_TICKS_BY_PLAYER.get(playerId);
-		if (lastProcessed != null && context.getGameplayTick() == lastProcessed) {
+		if (lastProcessed != null && context.getNowTick() == lastProcessed) {
 			return;
 		}
-		LAST_PROCESSED_TICKS_BY_PLAYER.put(playerId, context.getGameplayTick());
+		LAST_PROCESSED_TICKS_BY_PLAYER.put(playerId, context.getNowTick());
 
 		if (!settings.enabled) {
 			return;
@@ -352,13 +370,13 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 			return;
 		}
 
-		boolean stillActive = processPlayer(player, context.getGameplayTick());
+		boolean stillActive = processPlayer(player, context.getNowTick(), MadokuTime.getCurrentAbsoluteDayTime());
 		if (stillActive) {
 			requestHungerProcessing(server, playerId, 1L);
 		}
 	}
 
-	private static boolean processPlayer(ServerPlayer player, long gameplayTick) {
+	private static boolean processPlayer(ServerPlayer player, long gameplayTick, long currentAbsoluteDayTime) {
 		if (player == null) {
 			return false;
 		}
@@ -369,13 +387,23 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		initializeHungerFromPlayer(player, state, maxHungerPoints);
 		if (!player.isAlive() || player.isDeadOrDying()) {
 			state.clearPosition();
-			state.lastObservedGameplayTick = gameplayTick;
+			state.lastObservedAbsoluteDayTime = currentAbsoluteDayTime;
 			return false;
+		}
+		if (isExemptFromHungerDrain(player)) {
+			state.blockBreakProgress = 0;
+			state.travelProgress = 0.0d;
+			state.timeProgressTicks = 0;
+			state.lastObservedAbsoluteDayTime = currentAbsoluteDayTime;
+			state.markPosition(player.getX(), player.getZ());
+			applyFoodState(player, state.hungerPoints);
+			syncHudState(player, state, maxHungerPoints);
+			return true;
 		}
 		enforceSprintThreshold(player, state, maxHungerPoints, gameplayTick);
 		processFoodChanges(player, state, gameplayTick, maxHungerPoints);
 		processTravelGoal(player, state, gameplayTick);
-		processTimeGoal(player, state, gameplayTick);
+		processTimeGoal(player, state, currentAbsoluteDayTime, gameplayTick);
 		processHungerEffect(player, state, gameplayTick);
 		allocatePendingHunger(player, state, gameplayTick, maxHungerPoints);
 		clearIdlePendingHunger(player, state, gameplayTick);
@@ -431,7 +459,7 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 			Math.max(0L, delay),
 			TASK_TYPE_HUNGER_TICK,
 			new JsonObject(),
-			MadokuScheduler.ClockSource.GAMEPLAY
+			MadokuScheduler.TickDomain.GAMEPLAY
 		);
 		return status == MadokuScheduler.EnqueueStatus.ACCEPTED
 			|| status == MadokuScheduler.EnqueueStatus.QUEUE_FULL;
@@ -447,8 +475,8 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 			state.pendingHunger = safeAdd(state.pendingHunger, gainedInternal);
 			state.lastPendingActivityTick = gameplayTick;
 			scheduleNextPendingAllocation(state, gameplayTick);
-			if (MadokuDebug.shouldEmit(MadokuDebug.Domain.PLAYER, "hunger.pending_collected")) {
-				MadokuDebug.event("hunger.pending_collected", MadokuDebug.Domain.PLAYER)
+			if (MadokuDebug.shouldEmit(MadokuDebug.Domain.HUNGER, "hunger.pending_collected")) {
+				MadokuDebug.event("hunger.pending_collected", MadokuDebug.Domain.HUNGER)
 					.side(MadokuDebug.Side.SERVER)
 					.tick(gameplayTick)
 					.world(player.level().dimension().toString())
@@ -463,6 +491,10 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 	}
 
 	private static void processTravelGoal(ServerPlayer player, PlayerState state, long gameplayTick) {
+		if (isExemptFromHungerDrain(player)) {
+			state.markPosition(player.getX(), player.getZ());
+			return;
+		}
 		double x = player.getX();
 		double z = player.getZ();
 		if (!state.hasPosition()) {
@@ -490,8 +522,8 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		while (state.travelProgress >= settings.travelGoalDistance && settings.travelGoalDistance > 0.0d) {
 			state.travelProgress -= settings.travelGoalDistance;
 			int drained = drainStateHunger(state, 1);
-			if (drained > 0 && MadokuDebug.shouldEmit(MadokuDebug.Domain.PLAYER, "hunger.drain_travel_goal")) {
-				MadokuDebug.event("hunger.drain_travel_goal", MadokuDebug.Domain.PLAYER)
+			if (drained > 0 && MadokuDebug.shouldEmit(MadokuDebug.Domain.HUNGER, "hunger.drain_travel_goal")) {
+				MadokuDebug.event("hunger.drain_travel_goal", MadokuDebug.Domain.HUNGER)
 					.side(MadokuDebug.Side.SERVER)
 					.tick(gameplayTick)
 					.world(player.level().dimension().toString())
@@ -504,14 +536,19 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		}
 	}
 
-	private static void processTimeGoal(ServerPlayer player, PlayerState state, long gameplayTick) {
-		if (state.lastObservedGameplayTick < 0L) {
-			state.lastObservedGameplayTick = gameplayTick;
+	private static void processTimeGoal(ServerPlayer player, PlayerState state, long currentAbsoluteDayTime, long gameplayTick) {
+		if (isExemptFromHungerDrain(player)) {
+			state.lastObservedAbsoluteDayTime = currentAbsoluteDayTime;
+			state.timeProgressTicks = 0;
+			return;
+		}
+		if (state.lastObservedAbsoluteDayTime < 0L) {
+			state.lastObservedAbsoluteDayTime = currentAbsoluteDayTime;
 			return;
 		}
 
-		long elapsed = gameplayTick - state.lastObservedGameplayTick;
-		state.lastObservedGameplayTick = gameplayTick;
+		long elapsed = currentAbsoluteDayTime - state.lastObservedAbsoluteDayTime;
+		state.lastObservedAbsoluteDayTime = currentAbsoluteDayTime;
 		if (elapsed <= 0L) {
 			return;
 		}
@@ -520,8 +557,8 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		while (state.timeProgressTicks >= settings.timeGoalTicks && settings.timeGoalTicks > 0) {
 			state.timeProgressTicks -= settings.timeGoalTicks;
 			int drained = drainStateHunger(state, 1);
-			if (drained > 0 && MadokuDebug.shouldEmit(MadokuDebug.Domain.PLAYER, "hunger.drain_time_goal")) {
-				MadokuDebug.event("hunger.drain_time_goal", MadokuDebug.Domain.PLAYER)
+			if (drained > 0 && MadokuDebug.shouldEmit(MadokuDebug.Domain.HUNGER, "hunger.drain_time_goal")) {
+				MadokuDebug.event("hunger.drain_time_goal", MadokuDebug.Domain.HUNGER)
 					.side(MadokuDebug.Side.SERVER)
 					.tick(gameplayTick)
 					.world(player.level().dimension().toString())
@@ -533,6 +570,7 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 			}
 		}
 	}
+
 	private static void processHungerEffect(ServerPlayer player, PlayerState state, long gameplayTick) {
 		if (player == null || state == null || player.isCreative() || player.isSpectator()) {
 			return;
@@ -551,8 +589,8 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 			return;
 		}
 
-		if (MadokuDebug.shouldEmit(MadokuDebug.Domain.PLAYER, "hunger.drain_hunger_effect")) {
-			MadokuDebug.event("hunger.drain_hunger_effect", MadokuDebug.Domain.PLAYER)
+		if (MadokuDebug.shouldEmit(MadokuDebug.Domain.HUNGER, "hunger.drain_hunger_effect")) {
+			MadokuDebug.event("hunger.drain_hunger_effect", MadokuDebug.Domain.HUNGER)
 				.side(MadokuDebug.Side.SERVER)
 				.tick(gameplayTick)
 				.world(player.level().dimension().toString())
@@ -576,8 +614,8 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		}
 
 		player.setSprinting(false);
-		if (MadokuDebug.shouldEmit(MadokuDebug.Domain.PLAYER, "hunger.sprint_blocked")) {
-			MadokuDebug.event("hunger.sprint_blocked", MadokuDebug.Domain.PLAYER)
+		if (MadokuDebug.shouldEmit(MadokuDebug.Domain.HUNGER, "hunger.sprint_blocked")) {
+			MadokuDebug.event("hunger.sprint_blocked", MadokuDebug.Domain.HUNGER)
 				.side(MadokuDebug.Side.SERVER)
 				.tick(gameplayTick)
 				.world(player.level().dimension().toString())
@@ -627,8 +665,8 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		state.hungerPoints += moved;
 		state.lastPendingActivityTick = gameplayTick;
 		state.nextPendingAllocationTick = gameplayTick + Math.max(1, settings.pendingAllocationIntervalTicks);
-		if (MadokuDebug.shouldEmit(MadokuDebug.Domain.PLAYER, "hunger.pending_applied")) {
-			MadokuDebug.event("hunger.pending_applied", MadokuDebug.Domain.PLAYER)
+		if (MadokuDebug.shouldEmit(MadokuDebug.Domain.HUNGER, "hunger.pending_applied")) {
+			MadokuDebug.event("hunger.pending_applied", MadokuDebug.Domain.HUNGER)
 				.side(MadokuDebug.Side.SERVER)
 				.tick(gameplayTick)
 				.world(player.level().dimension().toString())
@@ -652,8 +690,8 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		state.pendingHunger = 0;
 		state.nextPendingAllocationTick = 0L;
 		state.lastPendingActivityTick = gameplayTick;
-		if (MadokuDebug.shouldEmit(MadokuDebug.Domain.PLAYER, "hunger.pending_idle_cleared")) {
-			MadokuDebug.event("hunger.pending_idle_cleared", MadokuDebug.Domain.PLAYER)
+		if (MadokuDebug.shouldEmit(MadokuDebug.Domain.HUNGER, "hunger.pending_idle_cleared")) {
+			MadokuDebug.event("hunger.pending_idle_cleared", MadokuDebug.Domain.HUNGER)
 				.side(MadokuDebug.Side.SERVER)
 				.tick(gameplayTick)
 				.world(player.level().dimension().toString())
@@ -672,8 +710,8 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 
 		state.hungerPoints = fromVanillaFood(player.getFoodData().getFoodLevel(), maxHungerPoints);
 		state.pendingHunger = Math.max(0, state.pendingHunger);
-		state.lastObservedGameplayTick = MadokuGameplayClock.getTicks();
-		state.lastPendingActivityTick = MadokuGameplayClock.getTicks();
+		state.lastObservedAbsoluteDayTime = MadokuTime.getCurrentAbsoluteDayTime();
+		state.lastPendingActivityTick = MadokuClock.getGameplayTicks();
 	}
 
 	private static void applyFoodState(ServerPlayer player, int hungerPoints) {
@@ -687,7 +725,7 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		}
 	}
 
-		private static void syncHudState(ServerPlayer player, PlayerState state, int maxHungerPoints) {
+	private static void syncHudState(ServerPlayer player, PlayerState state, int maxHungerPoints) {
 		if (player == null || state == null) {
 			return;
 		}
@@ -714,6 +752,10 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		}
 		state.hungerPoints -= drained;
 		return drained;
+	}
+
+	private static boolean isExemptFromHungerDrain(ServerPlayer player) {
+		return player != null && (player.isCreative() || player.isSpectator());
 	}
 
 	private static boolean isAtOrBelowSprintThreshold(int hungerPoints, int maxHungerPoints) {
@@ -817,7 +859,7 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 			player.addProperty("block_break_progress", state.blockBreakProgress);
 			player.addProperty("travel_progress", state.travelProgress);
 			player.addProperty("time_progress_ticks", state.timeProgressTicks);
-			player.addProperty("last_observed_gameplay_tick", state.lastObservedGameplayTick);
+			player.addProperty("last_observed_absolute_day_time", state.lastObservedAbsoluteDayTime);
 			player.addProperty("last_pending_activity_tick", Math.max(0L, state.lastPendingActivityTick));
 			player.addProperty("next_pending_allocation_tick", Math.max(0L, state.nextPendingAllocationTick));
 			players.add(player);
@@ -872,7 +914,7 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 			state.blockBreakProgress = Math.max(0, (int) getLong(playerData, "block_break_progress", 0L));
 			state.travelProgress = Math.max(0.0d, getDouble(playerData, "travel_progress", 0.0d));
 			state.timeProgressTicks = Math.max(0, (int) getLong(playerData, "time_progress_ticks", 0L));
-			state.lastObservedGameplayTick = getLong(playerData, "last_observed_gameplay_tick", getLong(playerData, "last_observed_absolute_day_time", -1L));
+			state.lastObservedAbsoluteDayTime = getLong(playerData, "last_observed_absolute_day_time", -1L);
 			state.lastPendingActivityTick = Math.max(0L, getLong(playerData, "last_pending_activity_tick", 0L));
 			state.nextPendingAllocationTick = Math.max(0L, getLong(playerData, "next_pending_allocation_tick", 0L));
 			PLAYER_STATES.put(playerId, state);
@@ -996,7 +1038,7 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		private int blockBreakProgress;
 		private double travelProgress;
 		private int timeProgressTicks;
-		private long lastObservedGameplayTick = -1L;
+		private long lastObservedAbsoluteDayTime = -1L;
 		private long lastPendingActivityTick;
 		private long nextPendingAllocationTick;
 		private long lastSaturationGainTick = Long.MIN_VALUE;
@@ -1121,4 +1163,3 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		}
 	}
 }
-

@@ -80,7 +80,7 @@ public abstract class LivingEntityEffectAttributeOverrideMixin {
 			target = "Lnet/minecraft/world/effect/MobEffect;removeAttributeModifiers(Lnet/minecraft/world/entity/ai/attributes/AttributeMap;)V"
 		)
 	)
-	private void madokuCraft$overrideOnEffectRemovedAttributes(
+	private void madokuCraft$overrideOnEffectsRemovedAttributes(
 		MobEffect effect,
 		AttributeMap attributes,
 		MobEffectInstance effectInstance

@@ -13,9 +13,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(GameRuleCommand.class)
 public abstract class NaturalRegenGameRuleLockMixin {
 	@Inject(method = "setRule", at = @At("HEAD"), cancellable = true)
-	private static <T extends GameRules.Value<T>> void madokuCraftAttributes$lockNaturalRegenGameRule(
+	private static void madokuCraftAttributes$lockNaturalRegenGameRule(
 		CommandContext<CommandSourceStack> context,
-		GameRules.Key<T> rule,
+		GameRules.Key<?> rule,
 		CallbackInfoReturnable<Integer> cir
 	) {
 		if (rule != GameRules.RULE_NATURAL_REGENERATION) {
