@@ -1,24 +1,55 @@
 package madoku.craft.attributes;
 
 import net.fabricmc.api.ModInitializer;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import madoku.craft.armor.MadokuArmor;
+import madoku.craft.health.MadokuHealth;
+import madoku.craft.hunger.MadokuHunger;
+import madoku.craft.luck.MadokuLuck;
+import madoku.craft.luck.MadokuPlacedBlocks;
+import madoku.craft.oxygen.MadokuOxygen;
 
 public class MadokuCraftAttributes implements ModInitializer {
 	public static final String MOD_ID = "madoku-craft-attributes";
 
-	// This logger is used to write text to the console and the log file.
-	// It is considered best practice to use your mod id as the logger's name.
-	// That way, it's clear which mod wrote info, warnings, and errors.
-	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
-
 	@Override
 	public void onInitialize() {
-		// This code runs as soon as Minecraft is in a mod-load-ready state.
-		// However, some things (like resources) may still be uninitialized.
-		// Proceed with mild caution.
+		MadokuAttributes.initialize();
+		MadokuArmor.initialize();
+		MadokuHealth.initialize();
+		MadokuHunger.initialize();
+		MadokuLuck.initialize();
+		MadokuPlacedBlocks.initialize();
+		MadokuOxygen.initialize();
 
-		LOGGER.info("Hello Fabric world!");
+		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+			MadokuHealth.reset();
+			MadokuHunger.reset();
+			MadokuPlacedBlocks.reset();
+			MadokuOxygen.reset();
+			MadokuHealth.loadPersistedData(server);
+			MadokuHunger.loadPersistedData(server);
+			MadokuPlacedBlocks.loadPersistedData(server);
+			MadokuOxygen.loadPersistedData(server);
+		});
+
+		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+			MadokuHealth.savePersistedData(server);
+			MadokuHunger.savePersistedData(server);
+			MadokuPlacedBlocks.savePersistedData(server);
+			MadokuOxygen.savePersistedData(server);
+			MadokuHealth.reset();
+			MadokuHunger.reset();
+			MadokuPlacedBlocks.reset();
+			MadokuOxygen.reset();
+		});
+
+		ServerTickEvents.END_SERVER_TICK.register(server -> {
+			MadokuHealth.autosavePersistedData(server);
+			MadokuHunger.autosavePersistedData(server);
+			MadokuPlacedBlocks.autosavePersistedData(server);
+			MadokuOxygen.autosavePersistedData(server);
+		});
 	}
 }

@@ -2,14 +2,13 @@
 	"schemaVersion": 1,
 	"id": "madoku-craft-attributes",
 	"version": "${version}",
-	"name": "madoku craft attributes",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"name": "Madoku Craft Attributes",
+	"description": "Standalone attribute gameplay systems for Madoku Craft.",
 	"authors": [
-		"Me!"
+		"Monkeyopolis"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"sources": "https://github.com/Monkeyopolis/Madoku-Craft-Attributes"
 	},
 	"license": "CC0-1.0",
 	"icon": "assets/madoku-craft-attributes/icon.png",
@@ -17,17 +16,10 @@
 	"entrypoints": {
 		"main": [
 			"madoku.craft.attributes.MadokuCraftAttributes"
-		],
-		"client": [
-			"madoku.craft.attributes.MadokuCraftAttributesClient"
 		]
 	},
 	"mixins": [
-		"madoku-craft-attributes.mixins.json",
-		{
-			"config": "madoku-craft-attributes.client.mixins.json",
-			"environment": "client"
-		}
+		"madoku-craft-attributes.mixins.json"
 	],
 	"depends": {
 		"fabricloader": ">=0.18.5",
