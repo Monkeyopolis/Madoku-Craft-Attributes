@@ -666,6 +666,8 @@ public final class MadokuHealth {
 		PlayerState state = PLAYER_STATES.computeIfAbsent(player.getUUID(), ignored -> new PlayerState());
 		state.onlineThisSession = true;
 		state.lastPendingActivityTick = MadokuTicks.getGameplayTicks();
+		state.highHungerDrainActive = player.getHealth() + EPSILON < player.getMaxHealth();
+		requestHealthProcessing(((ServerLevel) player.level()).getServer(), player.getUUID(), 1L);
 
 		if (MadokuDebug.shouldEmit(MadokuDebug.Domain.HEALTH, "health.damage_detected")) {
 			MadokuDebug.event("health.damage_detected", MadokuDebug.Domain.HEALTH)

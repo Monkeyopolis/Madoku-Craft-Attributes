@@ -20,6 +20,9 @@
 		"SaturationMobEffectMixin",
 		"ServerPlayerDrowningDamageMixin"
 	],
+	"client": [
+		"client.ItemFoodClientPredictionMixin"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	}

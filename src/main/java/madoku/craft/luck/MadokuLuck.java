@@ -15,6 +15,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -40,10 +43,13 @@ public final class MadokuLuck {
 
 	private static final Identifier BASE_LUCK_MODIFIER_ID =
 		Identifier.fromNamespaceAndPath(MadokuCraftAPI.SHARED_NAMESPACE, "madoku_luck");
+	private static final Identifier EFFECT_LUCK_MODIFIER_ID =
+		Identifier.fromNamespaceAndPath(MadokuCraftAPI.SHARED_NAMESPACE, "madoku_luck_effect");
 	private static final String LUCK_CONFIG_DIRECTORY_NAME = "madoku-luck";
 	private static final String LUCK_CONFIG_FILE_NAME = "madoku-luck";
 	private static final boolean DEFAULT_ENABLED = true;
-	private static final double DEFAULT_BASE_LUCK = 0.10d;
+	private static final double DEFAULT_BASE_LUCK = 0.05d;
+	private static final double LUCK_EFFECT_BONUS_PER_LEVEL = 0.05d;
 	private static final double DEFAULT_DROP_MULTIPLIER = 1.0d;
 	private static final double DEFAULT_MOB_DROP_MULTIPLIER = 0.5d;
 	private static final float DEFAULT_PLAYER_CRIT_DAMAGE_MULTIPLIER = 1.5f;
@@ -57,11 +63,23 @@ public final class MadokuLuck {
 	public static void initialize() {
 		loadStaticConfig();
 		ServerPlayerEvents.JOIN.register(MadokuLuck::handlePlayerJoin);
-		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> applyBaseLuck(newPlayer));
+		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> refreshPlayerLuck(newPlayer));
 	}
 
 	public static boolean isEnabled() {
 		return settings.enabled;
+	}
+
+	public static void handlePlayerEffectsChanged(ServerPlayer player) {
+		refreshPlayerLuck(player);
+	}
+
+	public static boolean shouldOverrideVanillaEffectAttributes(LivingEntity entity, MobEffect effect) {
+		if (!settings.enabled || !(entity instanceof ServerPlayer) || effect == null) {
+			return false;
+		}
+
+		return effect == MobEffects.LUCK.value();
 	}
 
 	public static boolean shouldApplyPlayerMeleeCrit(Player player, Entity target) {
@@ -111,7 +129,12 @@ public final class MadokuLuck {
 	}
 
 	private static void handlePlayerJoin(ServerPlayer player) {
+		refreshPlayerLuck(player);
+	}
+
+	private static void refreshPlayerLuck(ServerPlayer player) {
 		applyBaseLuck(player);
+		applyLuckEffect(player);
 	}
 
 	private static void applyBaseLuck(ServerPlayer player) {
@@ -130,6 +153,35 @@ public final class MadokuLuck {
 				new AttributeModifier(BASE_LUCK_MODIFIER_ID, settings.baseLuck, AttributeModifier.Operation.ADD_VALUE)
 			);
 		}
+	}
+
+	private static void applyLuckEffect(ServerPlayer player) {
+		if (player == null) {
+			return;
+		}
+
+		AttributeInstance luckAttribute = player.getAttribute(Attributes.LUCK);
+		if (luckAttribute == null) {
+			return;
+		}
+
+		luckAttribute.removeModifier(EFFECT_LUCK_MODIFIER_ID);
+		int effectLevel = getLuckEffectLevel(player);
+		double bonus = settings.enabled ? effectLevel * LUCK_EFFECT_BONUS_PER_LEVEL : 0.0d;
+		if (bonus > 0.0d) {
+			luckAttribute.addOrUpdateTransientModifier(
+				new AttributeModifier(EFFECT_LUCK_MODIFIER_ID, bonus, AttributeModifier.Operation.ADD_VALUE)
+			);
+		}
+	}
+
+	private static int getLuckEffectLevel(ServerPlayer player) {
+		if (player == null) {
+			return 0;
+		}
+
+		MobEffectInstance effectInstance = player.getEffect(MobEffects.LUCK);
+		return effectInstance == null ? 0 : effectInstance.getAmplifier() + 1;
 	}
 
 	public static void applyGeneratedLoot(LootContext lootContext, ObjectArrayList<ItemStack> stacks) {

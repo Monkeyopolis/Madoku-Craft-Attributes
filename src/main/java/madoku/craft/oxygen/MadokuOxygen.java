@@ -47,6 +47,7 @@ public final class MadokuOxygen {
 	private static final double DEFAULT_OXYGEN_GAIN_PER_EFFECT_LEVEL_FRACTION = 1.0d;
 	private static final long DEFAULT_DROWNING_DAMAGE_INTERVAL_TICKS = 20L;
 	private static final double DEFAULT_DROWNING_DAMAGE_AMOUNT = 1.0d;
+	private static final int VANILLA_MAX_AIR_SUPPLY = 300;
 
 	private static final Map<UUID, PlayerState> PLAYER_STATES = new HashMap<>();
 	private static final Map<UUID, String> PLAYER_SCHEDULER_IDS = new HashMap<>();
@@ -185,8 +186,9 @@ public final class MadokuOxygen {
 		if (player.isSpectator() || player.getAbilities().invulnerable) {
 			state.oxygenTicks = oxygenCapTicks;
 			state.lastKnownOxygenBoostLevels = getTotalOxygenBoostLevels(player);
-			if (player.getAirSupply() != oxygenCapTicks) {
-				player.setAirSupply(oxygenCapTicks);
+			int displayedAirSupply = toDisplayedAirSupply(state.oxygenTicks, oxygenCapTicks);
+			if (player.getAirSupply() != displayedAirSupply) {
+				player.setAirSupply(displayedAirSupply);
 			}
 			return true;
 		}
@@ -203,13 +205,9 @@ public final class MadokuOxygen {
 				int drained = Math.min(settings.oxygenDrainPerTick, state.oxygenTicks);
 				state.oxygenTicks = Math.max(0, state.oxygenTicks - drained);
 			}
-			if (state.oxygenTicks > 0) {
-				if (player.getAirSupply() != state.oxygenTicks) {
-					player.setAirSupply(state.oxygenTicks);
-				}
-			} else if (player.getAirSupply() > 0) {
-				// Force zero vanilla air so custom drowning damage stays authoritative.
-				player.setAirSupply(0);
+			int displayedAirSupply = toDisplayedAirSupply(state.oxygenTicks, oxygenCapTicks);
+			if (player.getAirSupply() != displayedAirSupply) {
+				player.setAirSupply(displayedAirSupply);
 			}
 			applyCustomDrowningDamage(player, state, gameplayTick);
 			return true;
@@ -220,8 +218,9 @@ public final class MadokuOxygen {
 			state.oxygenTicks = Math.min(oxygenCapTicks, state.oxygenTicks + recovered);
 		}
 		state.lastDrowningDamageTick = Long.MIN_VALUE;
-		if (player.getAirSupply() != state.oxygenTicks) {
-			player.setAirSupply(state.oxygenTicks);
+		int displayedAirSupply = toDisplayedAirSupply(state.oxygenTicks, oxygenCapTicks);
+		if (player.getAirSupply() != displayedAirSupply) {
+			player.setAirSupply(displayedAirSupply);
 		}
 		return true;
 	}
@@ -350,7 +349,11 @@ public final class MadokuOxygen {
 		}
 
 		if (state.oxygenTicks >= 0) {
-			state.oxygenTicks = clampInt(state.oxygenTicks, 0, oxygenCapTicks);
+			if (!shouldDrainOxygen(player)) {
+				state.oxygenTicks = oxygenCapTicks;
+			} else {
+				state.oxygenTicks = clampInt(state.oxygenTicks, 0, oxygenCapTicks);
+			}
 			if (state.lastKnownOxygenBoostLevels < 0) {
 				state.lastKnownOxygenBoostLevels = getTotalOxygenBoostLevels(player);
 			}
@@ -358,7 +361,9 @@ public final class MadokuOxygen {
 		}
 
 		int observedAirSupply = clampInt(player.getAirSupply(), 0, oxygenCapTicks);
-		state.oxygenTicks = observedAirSupply;
+		state.oxygenTicks = shouldDrainOxygen(player)
+			? fromDisplayedAirSupply(observedAirSupply, oxygenCapTicks)
+			: oxygenCapTicks;
 		state.lastKnownOxygenBoostLevels = getTotalOxygenBoostLevels(player);
 	}
 
@@ -373,8 +378,9 @@ public final class MadokuOxygen {
 		state.oxygenTicks = clampInt(state.oxygenTicks, 0, oxygenCapTicks);
 		state.lastDrowningDamageTick = Long.MIN_VALUE;
 		state.lastKnownOxygenBoostLevels = getTotalOxygenBoostLevels(player);
-		if (player.getAirSupply() != state.oxygenTicks) {
-			player.setAirSupply(state.oxygenTicks);
+		int displayedAirSupply = toDisplayedAirSupply(state.oxygenTicks, oxygenCapTicks);
+		if (player.getAirSupply() != displayedAirSupply) {
+			player.setAirSupply(displayedAirSupply);
 		}
 		requestOxygenProcessing(((net.minecraft.server.level.ServerLevel) player.level()).getServer(), player.getUUID(), 1L);
 	}
@@ -389,7 +395,7 @@ public final class MadokuOxygen {
 		state.oxygenTicks = oxygenCapTicks;
 		state.lastDrowningDamageTick = Long.MIN_VALUE;
 		state.lastKnownOxygenBoostLevels = getTotalOxygenBoostLevels(newPlayer);
-		newPlayer.setAirSupply(oxygenCapTicks);
+		newPlayer.setAirSupply(toDisplayedAirSupply(state.oxygenTicks, oxygenCapTicks));
 		requestOxygenProcessing(((net.minecraft.server.level.ServerLevel) newPlayer.level()).getServer(), newPlayer.getUUID(), 1L);
 	}
 
@@ -637,6 +643,34 @@ public final class MadokuOxygen {
 
 	private static int clampInt(int value, int min, int max) {
 		return Math.max(min, Math.min(max, value));
+	}
+
+	private static int toDisplayedAirSupply(int oxygenTicks, int oxygenCapTicks) {
+		int clampedCap = Math.max(1, oxygenCapTicks);
+		int clampedOxygen = clampInt(oxygenTicks, 0, clampedCap);
+		if (clampedOxygen <= 0) {
+			return 0;
+		}
+		if (clampedOxygen >= clampedCap) {
+			return VANILLA_MAX_AIR_SUPPLY;
+		}
+
+		double ratio = (double) clampedOxygen / (double) clampedCap;
+		return clampInt(Math.max(1, (int) Math.round(ratio * VANILLA_MAX_AIR_SUPPLY)), 1, VANILLA_MAX_AIR_SUPPLY);
+	}
+
+	private static int fromDisplayedAirSupply(int displayedAirSupply, int oxygenCapTicks) {
+		int clampedDisplay = clampInt(displayedAirSupply, 0, VANILLA_MAX_AIR_SUPPLY);
+		int clampedCap = Math.max(1, oxygenCapTicks);
+		if (clampedDisplay <= 0) {
+			return 0;
+		}
+		if (clampedDisplay >= VANILLA_MAX_AIR_SUPPLY) {
+			return clampedCap;
+		}
+
+		double ratio = (double) clampedDisplay / (double) VANILLA_MAX_AIR_SUPPLY;
+		return clampInt(Math.max(1, (int) Math.round(ratio * clampedCap)), 1, clampedCap);
 	}
 
 	private static final class PlayerState {

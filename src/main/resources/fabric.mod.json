@@ -3,7 +3,7 @@
 	"id": "madoku-craft-attributes",
 	"version": "${version}",
 	"name": "Madoku Craft Attributes",
-	"description": "Standalone attribute gameplay systems for Madoku Craft.",
+	"description": "A configurable Attribute overhaul system.",
 	"authors": [
 		"Monkeyopolis"
 	],
