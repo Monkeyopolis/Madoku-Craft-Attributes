@@ -17,8 +17,21 @@ repositories {
 	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
 	// for more information about repositories.
 	maven {
-		name = "CurseForge"
 		url = "https://www.cursemaven.com"
+		content {
+			includeGroup "curse.maven"
+		}
+	}
+}
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"madoku-craft-attributes" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
 	}
 }
 
