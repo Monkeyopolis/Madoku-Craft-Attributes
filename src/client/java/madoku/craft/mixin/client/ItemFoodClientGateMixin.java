@@ -1,6 +1,6 @@
 package madoku.craft.mixin.client;
 
-import madoku.craft.network.HungerStateSync;
+import madoku.craft.hunger.MadokuHunger;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
@@ -31,7 +31,7 @@ public abstract class ItemFoodClientGateMixin {
 			return;
 		}
 
-		if (!HungerStateSync.canConsumeClient()) {
+		if (!MadokuHunger.canConsumeFoodClient(false)) {
 			cir.setReturnValue(InteractionResultHolder.fail(stack));
 		}
 	}

@@ -6,7 +6,7 @@ import com.google.gson.JsonObject;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import madoku.craft.MadokuCraftAttributes;
-import madoku.craft.clock.MadokuClock;
+import madoku.craft.clock.MadokuTicks;
 import madoku.craft.config.StaticJsonSystem;
 import madoku.craft.data.MadokuData;
 import madoku.craft.debug.MadokuDebug;
@@ -29,7 +29,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -42,7 +41,7 @@ public final class MadokuHealth {
 	private static final float HEALTH_ROUND_STEP = 0.125f;
 	private static final int VANILLA_MAX_HUNGER_POINTS = 20;
 
-	private static final String HEALTH_CONFIG_FOLDER_NAME = "madoku-craft-health";
+	private static final String HEALTH_CONFIG_DIRECTORY_NAME = "madoku-health";
 	private static final String HEALTH_CONFIG_FILE_NAME = "madoku-health";
 	private static final String DATA_FOLDER_NAME = "madoku-craft-health";
 	private static final String DATA_FILE_NAME = "madoku-health";
@@ -99,7 +98,7 @@ public final class MadokuHealth {
 		MadokuData.createWorldData(server, DATA_FOLDER_NAME, DATA_FILE_NAME, createDefaultData());
 		JsonObject data = MadokuData.loadWorldData(server, DATA_FOLDER_NAME, DATA_FILE_NAME);
 		applyPersistedData(data);
-		lastAutosaveBucket = Math.floorDiv(MadokuClock.getGameplayTicks(), AUTOSAVE_INTERVAL_TICKS);
+		lastAutosaveBucket = Math.floorDiv(MadokuTicks.getGameplayTicks(), AUTOSAVE_INTERVAL_TICKS);
 	}
 
 	public static void autosavePersistedData(MinecraftServer server) {
@@ -107,7 +106,7 @@ public final class MadokuHealth {
 			return;
 		}
 
-		long bucket = Math.floorDiv(MadokuClock.getGameplayTicks(), AUTOSAVE_INTERVAL_TICKS);
+		long bucket = Math.floorDiv(MadokuTicks.getGameplayTicks(), AUTOSAVE_INTERVAL_TICKS);
 		if (bucket != lastAutosaveBucket) {
 			lastAutosaveBucket = bucket;
 			savePersistedData(server);
@@ -633,7 +632,7 @@ public final class MadokuHealth {
 		PlayerState state = PLAYER_STATES.computeIfAbsent(newPlayer.getUUID(), ignored -> new PlayerState());
 		state.pendingHealth = 0.0f;
 		state.highHungerDrainActive = newPlayer.getHealth() + EPSILON < newPlayer.getMaxHealth();
-		state.lastPendingActivityTick = MadokuClock.getGameplayTicks();
+		state.lastPendingActivityTick = MadokuTicks.getGameplayTicks();
 		state.appliedMaxHealthMultiplier = 1.0d;
 		state.appliedHealthBoostAmount = 0.0d;
 		state.appliedAbsorptionAmount = 0.0f;
@@ -643,7 +642,7 @@ public final class MadokuHealth {
 		if (MadokuDebug.shouldEmit(MadokuDebug.Domain.HEALTH, "health.respawn_half_health")) {
 			MadokuDebug.event("health.respawn_half_health", MadokuDebug.Domain.HEALTH)
 				.side(MadokuDebug.Side.SERVER)
-				.tick(MadokuClock.getGameplayTicks())
+				.tick(MadokuTicks.getGameplayTicks())
 				.subject("player:" + newPlayer.getUUID())
 				.field("health", formatFloat(newPlayer.getHealth()))
 				.field("max_health", formatFloat(newPlayer.getMaxHealth()))
@@ -664,12 +663,14 @@ public final class MadokuHealth {
 
 		PlayerState state = PLAYER_STATES.computeIfAbsent(player.getUUID(), ignored -> new PlayerState());
 		state.onlineThisSession = true;
-		state.lastPendingActivityTick = MadokuClock.getGameplayTicks();
+		state.lastPendingActivityTick = MadokuTicks.getGameplayTicks();
+		state.highHungerDrainActive = player.getHealth() + EPSILON < player.getMaxHealth();
+		requestHealthProcessing(((ServerLevel) player.level()).getServer(), player.getUUID(), 1L);
 
 		if (MadokuDebug.shouldEmit(MadokuDebug.Domain.HEALTH, "health.damage_detected")) {
 			MadokuDebug.event("health.damage_detected", MadokuDebug.Domain.HEALTH)
 				.side(MadokuDebug.Side.SERVER)
-				.tick(MadokuClock.getGameplayTicks())
+				.tick(MadokuTicks.getGameplayTicks())
 				.subject("player:" + player.getUUID())
 				.field("damage_taken", formatFloat(damageTaken))
 				.field("blocked", blocked)
@@ -684,9 +685,9 @@ public final class MadokuHealth {
 
 		PlayerState state = PLAYER_STATES.computeIfAbsent(player.getUUID(), ignored -> new PlayerState());
 		state.onlineThisSession = true;
-		state.lastPendingActivityTick = MadokuClock.getGameplayTicks();
+		state.lastPendingActivityTick = MadokuTicks.getGameplayTicks();
 		state.highHungerDrainActive = player.getHealth() + EPSILON < player.getMaxHealth();
-		applyImmediateEffectOverrides(player, state, MadokuClock.getGameplayTicks());
+		applyImmediateEffectOverrides(player, state, MadokuTicks.getGameplayTicks());
 		requestHealthProcessing(((ServerLevel) player.level()).getServer(), player.getUUID(), 1L);
 	}
 
@@ -697,7 +698,7 @@ public final class MadokuHealth {
 
 		PlayerState state = PLAYER_STATES.computeIfAbsent(player.getUUID(), ignored -> new PlayerState());
 		state.onlineThisSession = true;
-		long gameplayTick = MadokuClock.getGameplayTicks();
+		long gameplayTick = MadokuTicks.getGameplayTicks();
 		state.lastPendingActivityTick = gameplayTick;
 		applyImmediateEffectOverrides(player, state, gameplayTick);
 		requestHealthProcessing(((ServerLevel) player.level()).getServer(), player.getUUID(), 1L);
@@ -832,27 +833,15 @@ public final class MadokuHealth {
 		Settings fallback = Settings.defaults();
 
 		try {
-			Path directory = StaticJsonSystem.getOrCreateGlobalSystemDirectory(HEALTH_CONFIG_FOLDER_NAME);
-			Path configFile = resolveJsonFile(directory, HEALTH_CONFIG_FILE_NAME);
+			var configFile = MadokuAttributes.prepareSystemConfigFile(HEALTH_CONFIG_DIRECTORY_NAME, HEALTH_CONFIG_FILE_NAME);
 			JsonObject normalized = StaticJsonSystem.ensureManagedFile(configFile, defaults);
-			Settings loaded = Settings.fromJson(normalized);
-			StaticJsonSystem.writeManagedFile(configFile, loaded.toConfigJson(), defaults);
-			settings = loaded;
+			Settings configured = Settings.fromJson(normalized);
+			StaticJsonSystem.writeManagedFile(configFile, configured.toConfigJson(), defaults);
+			settings = configured.withEnabled(MadokuAttributes.isEnabled());
 		} catch (IOException | RuntimeException exception) {
-			settings = fallback;
+			settings = fallback.withEnabled(MadokuAttributes.isEnabled());
 			LOGGER.error("Failed to load MadokuHealth static config; using defaults.", exception);
 		}
-	}
-
-	private static Path resolveJsonFile(Path directory, String fileName) {
-		String normalized = fileName == null ? "" : fileName.trim();
-		if (normalized.isEmpty()) {
-			throw new IllegalArgumentException("Config file name must not be blank.");
-		}
-		if (!normalized.endsWith(".json")) {
-			normalized = normalized + ".json";
-		}
-		return directory.resolve(normalized);
 	}
 
 	private static String getString(JsonObject object, String key, String fallback) {
@@ -1075,6 +1064,24 @@ public final class MadokuHealth {
 			root.addProperty("pending_health_apply_amount", pendingHealthApplyAmount);
 			root.addProperty("pending_idle_timeout_ticks", pendingIdleTimeoutTicks);
 			return root;
+		}
+
+		private Settings withEnabled(boolean attributesEnabled) {
+			return new Settings(
+				attributesEnabled && enabled,
+				schedulerTickInterval,
+				actionIntervalTicks,
+				maximumHealth,
+				highHungerStartRatio,
+				highHungerStopRatio,
+				lowHungerThresholdRatio,
+				lowHungerStepRatio,
+				maxHealthReductionPerStep,
+				minimumMaxHealthMultiplier,
+				pendingHealthPerHunger,
+				pendingHealthApplyAmount,
+				pendingIdleTimeoutTicks
+			);
 		}
 
 		private static long clampLong(long value, long min, long max) {

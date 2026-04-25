@@ -1,6 +1,7 @@
 package madoku.craft.mixin;
 
 import madoku.craft.attributes.MadokuHealth;
+import madoku.craft.luck.MadokuLuck;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
@@ -16,6 +17,7 @@ public abstract class LivingEntityEffectMixin {
 	private void madokuCraft$onEffectAdded(MobEffectInstance effect, Entity source, CallbackInfo ci) {
 		if ((Object) this instanceof ServerPlayer player) {
 			MadokuHealth.handlePlayerEffectsChanged(player);
+			MadokuLuck.handlePlayerEffectsChanged(player);
 		}
 	}
 
@@ -23,6 +25,7 @@ public abstract class LivingEntityEffectMixin {
 	private void madokuCraft$onEffectUpdated(MobEffectInstance effect, boolean reapplyEffect, Entity source, CallbackInfo ci) {
 		if ((Object) this instanceof ServerPlayer player) {
 			MadokuHealth.handlePlayerEffectsChanged(player);
+			MadokuLuck.handlePlayerEffectsChanged(player);
 		}
 	}
 
@@ -30,6 +33,7 @@ public abstract class LivingEntityEffectMixin {
 	private void madokuCraft$onEffectRemoved(MobEffectInstance effect, CallbackInfo ci) {
 		if ((Object) this instanceof ServerPlayer player) {
 			MadokuHealth.handlePlayerEffectsChanged(player);
+			MadokuLuck.handlePlayerEffectsChanged(player);
 		}
 	}
 }

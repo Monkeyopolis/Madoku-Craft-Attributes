@@ -3,7 +3,8 @@ package madoku.craft.oxygen;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import madoku.craft.clock.MadokuClock;
+import madoku.craft.attributes.MadokuAttributes;
+import madoku.craft.clock.MadokuTicks;
 import madoku.craft.config.StaticJsonSystem;
 import madoku.craft.data.MadokuData;
 import madoku.craft.scheduler.MadokuScheduler;
@@ -22,7 +23,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -32,14 +32,14 @@ import java.util.UUID;
 public final class MadokuOxygen {
 	private static final Logger LOGGER = LoggerFactory.getLogger(MadokuOxygen.class);
 
-	private static final String OXYGEN_CONFIG_FOLDER_NAME = "madoku-craft-oxygen";
+	private static final String OXYGEN_CONFIG_DIRECTORY_NAME = "madoku-oxygen";
 	private static final String OXYGEN_CONFIG_FILE_NAME = "madoku-oxygen";
 	private static final String DATA_FOLDER_NAME = "madoku-craft-oxygen";
 	private static final String DATA_FILE_NAME = "madoku-oxygen";
 	private static final String TASK_TYPE_OXYGEN_TICK = "oxygen_tick";
 	private static final String VANILLA_BREATH_OF_THE_NAUTILUS_DESCRIPTION_ID = "effect.minecraft.breath_of_the_nautilus";
 	private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
-	private static final long TICKS_PER_SECOND = Math.max(1L, MadokuClock.TICKS_PER_SECOND);
+	private static final long TICKS_PER_SECOND = Math.max(1L, MadokuTicks.TICKS_PER_SECOND);
 	private static final double MIN_OXYGEN_GAIN_PER_EFFECT_LEVEL_FRACTION = 0.1d;
 	private static final double MAX_OXYGEN_GAIN_PER_EFFECT_LEVEL_FRACTION = 100.0d;
 	private static final double DEFAULT_MAXIMUM_OXYGEN_GAIN_PER_EFFECT_LEVEL_FRACTION = 2.0d;
@@ -83,7 +83,7 @@ public final class MadokuOxygen {
 		MadokuData.createWorldData(server, DATA_FOLDER_NAME, DATA_FILE_NAME, createDefaultData());
 		JsonObject data = MadokuData.loadWorldData(server, DATA_FOLDER_NAME, DATA_FILE_NAME);
 		applyPersistedData(data);
-		lastAutosaveBucket = Math.floorDiv(MadokuClock.getGameplayTicks(), AUTOSAVE_INTERVAL_TICKS);
+		lastAutosaveBucket = Math.floorDiv(MadokuTicks.getGameplayTicks(), AUTOSAVE_INTERVAL_TICKS);
 	}
 
 	public static void autosavePersistedData(MinecraftServer server) {
@@ -91,7 +91,7 @@ public final class MadokuOxygen {
 			return;
 		}
 
-		long bucket = Math.floorDiv(MadokuClock.getGameplayTicks(), AUTOSAVE_INTERVAL_TICKS);
+		long bucket = Math.floorDiv(MadokuTicks.getGameplayTicks(), AUTOSAVE_INTERVAL_TICKS);
 		if (bucket != lastAutosaveBucket) {
 			lastAutosaveBucket = bucket;
 			savePersistedData(server);
@@ -291,7 +291,7 @@ public final class MadokuOxygen {
 				}
 			}
 		} catch (RuntimeException ignored) {
-			// Entity effects may be unavailable during construction; treat as no boost.
+			// During early entity construction, effects may not be initialized yet.
 			return 0;
 		}
 		return Math.max(0, bestLevel);
@@ -305,7 +305,7 @@ public final class MadokuOxygen {
 		try {
 			effectInstance = entity.getEffect(effect);
 		} catch (RuntimeException ignored) {
-			// Entity effects may be unavailable during construction; treat as no boost.
+			// During early entity construction, effects may not be initialized yet.
 			return 0;
 		}
 		if (effectInstance == null) {
@@ -364,7 +364,11 @@ public final class MadokuOxygen {
 		}
 
 		if (state.oxygenTicks >= 0) {
-			state.oxygenTicks = clampInt(state.oxygenTicks, 0, oxygenCapTicks);
+			if (!shouldDrainOxygen(player)) {
+				state.oxygenTicks = oxygenCapTicks;
+			} else {
+				state.oxygenTicks = clampInt(state.oxygenTicks, 0, oxygenCapTicks);
+			}
 			if (state.lastKnownOxygenBoostLevels < 0) {
 				state.lastKnownOxygenBoostLevels = getTotalOxygenBoostLevels(player);
 			}
@@ -372,7 +376,7 @@ public final class MadokuOxygen {
 		}
 
 		int observedAirSupply = clampInt(player.getAirSupply(), 0, oxygenCapTicks);
-		state.oxygenTicks = observedAirSupply;
+		state.oxygenTicks = shouldDrainOxygen(player) ? observedAirSupply : oxygenCapTicks;
 		state.lastKnownOxygenBoostLevels = getTotalOxygenBoostLevels(player);
 	}
 
@@ -559,27 +563,15 @@ public final class MadokuOxygen {
 		Settings fallback = Settings.defaults();
 
 		try {
-			Path directory = StaticJsonSystem.getOrCreateGlobalSystemDirectory(OXYGEN_CONFIG_FOLDER_NAME);
-			Path configFile = resolveJsonFile(directory, OXYGEN_CONFIG_FILE_NAME);
+			var configFile = MadokuAttributes.prepareSystemConfigFile(OXYGEN_CONFIG_DIRECTORY_NAME, OXYGEN_CONFIG_FILE_NAME);
 			JsonObject normalized = StaticJsonSystem.ensureManagedFile(configFile, defaults);
-			Settings loaded = Settings.fromJson(normalized);
-			StaticJsonSystem.writeManagedFile(configFile, loaded.toConfigJson(), defaults);
-			settings = loaded;
+			Settings configured = Settings.fromJson(normalized);
+			StaticJsonSystem.writeManagedFile(configFile, configured.toConfigJson(), defaults);
+			settings = configured.withEnabled(MadokuAttributes.isEnabled());
 		} catch (IOException | RuntimeException exception) {
-			settings = fallback;
+			settings = fallback.withEnabled(MadokuAttributes.isEnabled());
 			LOGGER.error("Failed to load MadokuOxygen static config; using defaults.", exception);
 		}
-	}
-
-	private static Path resolveJsonFile(Path directory, String fileName) {
-		String normalized = fileName == null ? "" : fileName.trim();
-		if (normalized.isEmpty()) {
-			throw new IllegalArgumentException("Config file name must not be blank.");
-		}
-		if (!normalized.endsWith(".json")) {
-			normalized = normalized + ".json";
-		}
-		return directory.resolve(normalized);
 	}
 
 	private static String getString(JsonObject object, String key, String fallback) {
@@ -780,6 +772,20 @@ public final class MadokuOxygen {
 			root.addProperty("drowning_damage_interval_ticks", drowningDamageIntervalTicks);
 			root.addProperty("drowning_damage_amount", drowningDamageAmount);
 			return root;
+		}
+
+		private Settings withEnabled(boolean attributesEnabled) {
+			return new Settings(
+				attributesEnabled && enabled,
+				schedulerTickInterval,
+				maximumOxygenTicks,
+				oxygenDrainPerTick,
+				oxygenRecoveryPerTick,
+				maximumOxygenGainPerEffectLevelFraction,
+				oxygenGainPerEffectLevelFraction,
+				drowningDamageIntervalTicks,
+				drowningDamageAmount
+			);
 		}
 
 		private static long clampLong(long value, long min, long max) {
