@@ -1,7 +1,8 @@
 package madoku.craft.attributes;
 
 import com.google.gson.JsonObject;
-import madoku.craft.config.StaticJsonSystem;
+import madoku.craft.config.JsonManagerSystem;
+import madoku.craft.config.JsonStaticSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,11 +40,11 @@ public final class MadokuAttributes {
 		Settings fallback = Settings.defaults();
 
 		try {
-			Path directory = StaticJsonSystem.getOrCreateGlobalSystemDirectory(ATTRIBUTES_CONFIG_FOLDER_NAME);
+			Path directory = JsonManagerSystem.getOrCreateGlobalSystemDirectory(ATTRIBUTES_CONFIG_FOLDER_NAME);
 			Path configFile = resolveJsonFile(directory, ATTRIBUTES_CONFIG_FILE_NAME);
-			JsonObject normalized = StaticJsonSystem.ensureManagedFile(configFile, defaults);
+			JsonObject normalized = JsonStaticSystem.ensureManagedFile(configFile, defaults);
 			Settings loaded = Settings.fromJson(normalized);
-			StaticJsonSystem.writeManagedFile(configFile, loaded.toConfigJson(), defaults);
+			JsonStaticSystem.writeManagedFile(configFile, loaded.toConfigJson(), defaults);
 			settings = loaded;
 		} catch (IOException | RuntimeException exception) {
 			settings = fallback;
@@ -57,7 +58,7 @@ public final class MadokuAttributes {
 			throw new IllegalArgumentException("Attribute system directory name must not be blank.");
 		}
 
-		Path rootDirectory = StaticJsonSystem.getOrCreateGlobalSystemDirectory(ATTRIBUTES_CONFIG_FOLDER_NAME);
+		Path rootDirectory = JsonManagerSystem.getOrCreateGlobalSystemDirectory(ATTRIBUTES_CONFIG_FOLDER_NAME);
 		Path directory = rootDirectory.resolve(normalizedName);
 		try {
 			Files.createDirectories(directory);
@@ -116,3 +117,4 @@ public final class MadokuAttributes {
 		}
 	}
 }
+

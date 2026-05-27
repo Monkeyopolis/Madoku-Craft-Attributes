@@ -4,8 +4,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import madoku.craft.clock.MadokuTicks;
-import madoku.craft.data.MadokuData;
-import madoku.craft.scheduler.MadokuScheduler;
+import madoku.craft.data.DataManagerSystem;
+import madoku.craft.scheduler.SchedulerManagerSystem;
 import madoku.craft.time.MadokuTime;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
@@ -25,7 +25,7 @@ public final class MadokuPlacedBlocks {
 	private static final String FIELD_POSITION = "position";
 	private static final String FIELD_TRACKED_SINCE_GAMEPLAY_TICK = "tracked_since_gameplay_tick";
 	private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
-	private static final long PLACED_BLOCK_RETENTION_DAYS = 112L;
+	private static final long PLACED_BLOCK_RETENTION_DAYS = 28L;
 
 	private static final Map<String, Set<Long>> PLACED_BLOCKS_BY_LEVEL = new HashMap<>();
 	private static boolean dirty = false;
@@ -50,8 +50,7 @@ public final class MadokuPlacedBlocks {
 			return;
 		}
 
-		MadokuData.createWorldData(server, DATA_FOLDER_NAME, DATA_FILE_NAME, createDefaultData());
-		applyPersistedData(MadokuData.loadWorldData(server, DATA_FOLDER_NAME, DATA_FILE_NAME));
+		applyPersistedData(DataManagerSystem.loadWorldData(server, DATA_FOLDER_NAME, DATA_FILE_NAME, createDefaultData()));
 		clearExpiredPlacedBlocks(null);
 		lastAutosaveBucket = Math.floorDiv(MadokuTicks.getGameplayTicks(), AUTOSAVE_INTERVAL_TICKS);
 	}
@@ -79,7 +78,7 @@ public final class MadokuPlacedBlocks {
 		}
 
 		clearExpiredPlacedBlocks(null);
-		MadokuData.saveWorldData(server, DATA_FOLDER_NAME, DATA_FILE_NAME, toPersistedData());
+		DataManagerSystem.saveWorldData(server, DATA_FOLDER_NAME, DATA_FILE_NAME, toPersistedData());
 		dirty = false;
 	}
 
@@ -174,7 +173,7 @@ public final class MadokuPlacedBlocks {
 		if (world == null) {
 			return "";
 		}
-		return MadokuScheduler.normalizeLevelIdentifier(world.dimension().toString());
+		return SchedulerManagerSystem.normalizeLevelIdentifier(world.dimension().toString());
 	}
 
 	private static JsonObject createDefaultData() {
@@ -348,3 +347,4 @@ public final class MadokuPlacedBlocks {
 		}
 	}
 }
+

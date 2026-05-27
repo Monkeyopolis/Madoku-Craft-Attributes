@@ -5,7 +5,7 @@ import com.google.gson.JsonObject;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import madoku.craft.API.MadokuCraftAPI;
 import madoku.craft.attributes.MadokuAttributes;
-import madoku.craft.config.StaticJsonSystem;
+import madoku.craft.config.JsonStaticSystem;
 import madoku.craft.debug.MadokuDebug;
 import madoku.craft.clock.MadokuTicks;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
@@ -637,9 +637,9 @@ public final class MadokuLuck {
 
 		try {
 			var configFile = MadokuAttributes.prepareSystemConfigFile(LUCK_CONFIG_DIRECTORY_NAME, LUCK_CONFIG_FILE_NAME);
-			JsonObject normalized = StaticJsonSystem.ensureManagedFile(configFile, defaults);
+			JsonObject normalized = JsonStaticSystem.ensureManagedFile(configFile, defaults);
 			Settings loaded = Settings.fromJson(normalized);
-			StaticJsonSystem.writeManagedFile(configFile, loaded.toConfigJson(), defaults);
+			JsonStaticSystem.writeManagedFile(configFile, loaded.toConfigJson(), defaults);
 			settings = loaded;
 		} catch (IOException | RuntimeException exception) {
 			settings = fallback;
@@ -931,3 +931,4 @@ public final class MadokuLuck {
 	private record ActiveDropContext(ServerLevel level, ServerPlayer player, BlockPos pos, BlockState state) {
 	}
 }
+

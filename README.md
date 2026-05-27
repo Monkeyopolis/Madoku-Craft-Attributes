@@ -9,7 +9,7 @@ You can customize most of these features in the CONFIG files.
 - Fabric API
 - Madoku Craft API
 
-## Implementation:
+## Features:
 
 Health:
 

@@ -3,7 +3,7 @@ package madoku.craft.armor;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import madoku.craft.attributes.MadokuAttributes;
-import madoku.craft.config.StaticJsonSystem;
+import madoku.craft.config.JsonStaticSystem;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
@@ -76,9 +76,9 @@ public final class MadokuArmor {
 
 		try {
 			Path configFile = MadokuAttributes.prepareSystemConfigFile(ARMOR_CONFIG_DIRECTORY_NAME, ARMOR_CONFIG_FILE_NAME);
-			JsonObject normalized = StaticJsonSystem.ensureManagedFile(configFile, defaults);
+			JsonObject normalized = JsonStaticSystem.ensureManagedFile(configFile, defaults);
 			Settings configured = Settings.fromJson(normalized);
-			StaticJsonSystem.writeManagedFile(configFile, configured.toConfigJson(), defaults);
+			JsonStaticSystem.writeManagedFile(configFile, configured.toConfigJson(), defaults);
 			settings = configured.withEnabled(MadokuAttributes.isEnabled());
 		} catch (IOException | RuntimeException exception) {
 			settings = fallback.withEnabled(MadokuAttributes.isEnabled());
@@ -231,3 +231,4 @@ public final class MadokuArmor {
 		}
 	}
 }
+

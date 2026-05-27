@@ -5,10 +5,10 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import madoku.craft.attributes.MadokuAttributes;
 import madoku.craft.clock.MadokuTicks;
-import madoku.craft.config.StaticJsonSystem;
-import madoku.craft.data.MadokuData;
+import madoku.craft.config.JsonStaticSystem;
+import madoku.craft.data.DataManagerSystem;
 import madoku.craft.debug.MadokuDebug;
-import madoku.craft.scheduler.MadokuScheduler;
+import madoku.craft.scheduler.SchedulerManagerSystem;
 import madoku.craft.time.MadokuTime;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
@@ -38,9 +38,7 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MadokuHunger.class)
 private static final int VANILLA_MAX_HUNGER_POINTS = 20;
 private static final int MAX_LEVEL_BONUS_HUNGER_POINTS = 20;
 private static final int MAX_CONFIG_HUNGER_POINTS = 8192;
-private static final int MADOKU_HOURS_PER_DAY = 24;
-private static final int MINECRAFT_TICKS_PER_DAY = 24000;
-private static final int DEFAULT_TIME_GOAL_CLOCK_TICKS = 6 * MINECRAFT_TICKS_PER_DAY / MADOKU_HOURS_PER_DAY;
+private static final int DEFAULT_TIME_GOAL_CLOCK_TICKS = 7200;
 private static final double RESPAWN_HUNGER_RATIO = 0.5d;
 private static final long HUNGER_EFFECT_INTERVAL_TICKS = 20L;
 private static final long SATURATION_HUNGER_INTERVAL_TICKS = 20L;
@@ -64,7 +62,7 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 
 	public static void initialize() {
 		loadStaticConfig();
-		MadokuScheduler.registerTaskHandler(TASK_TYPE_HUNGER_TICK, MadokuHunger::runHungerTask);
+		SchedulerManagerSystem.registerTaskHandler(TASK_TYPE_HUNGER_TICK, MadokuHunger::runHungerTask);
 		ServerPlayerEvents.JOIN.register(MadokuHunger::handlePlayerJoin);
 		ServerPlayerEvents.AFTER_RESPAWN.register(MadokuHunger::handlePlayerRespawn);
 		PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> handleBlockBreak(player));
@@ -84,8 +82,7 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		}
 
 		loadStaticConfig();
-		MadokuData.createWorldData(server, DATA_FOLDER_NAME, DATA_FILE_NAME, createDefaultData());
-		JsonObject data = MadokuData.loadWorldData(server, DATA_FOLDER_NAME, DATA_FILE_NAME);
+		JsonObject data = DataManagerSystem.loadWorldData(server, DATA_FOLDER_NAME, DATA_FILE_NAME, createDefaultData());
 		applyPersistedData(data);
 		lastAutosaveBucket = Math.floorDiv(MadokuTicks.getGameplayTicks(), AUTOSAVE_INTERVAL_TICKS);
 	}
@@ -106,7 +103,7 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		if (server == null) {
 			return;
 		}
-		MadokuData.saveWorldData(server, DATA_FOLDER_NAME, DATA_FILE_NAME, toPersistedData());
+		DataManagerSystem.saveWorldData(server, DATA_FOLDER_NAME, DATA_FILE_NAME, toPersistedData());
 	}
 
 	public static boolean isEnabled() {
@@ -328,17 +325,13 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		requestHungerProcessing(((net.minecraft.server.level.ServerLevel) serverPlayer.level()).getServer(), serverPlayer.getUUID(), 1L);
 	}
 
-	private static void runHungerTask(MinecraftServer server, MadokuScheduler.TaskContext context, JsonObject payload) {
+	private static void runHungerTask(MinecraftServer server, SchedulerManagerSystem.TaskContext context, JsonObject payload) {
 		if (server == null || context == null) {
 			return;
 		}
 
-		MadokuScheduler.SchedulerOwner owner = context.getOwner();
-		if (owner == null || !"player".equals(owner.getKind())) {
-			return;
-		}
-
-		UUID playerId = parseUuid(owner.getOwnerId());
+		SchedulerManagerSystem.SchedulerBinding binding = context.getBinding();
+		UUID playerId = binding == null ? null : binding.getEntityUuid();
 		if (playerId == null) {
 			return;
 		}
@@ -411,8 +404,8 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 
 		String schedulerId = PLAYER_SCHEDULER_IDS.get(playerId);
 		if (schedulerId == null || schedulerId.isBlank()) {
-			schedulerId = MadokuScheduler.createScheduler(
-				MadokuScheduler.SchedulerOwner.of("player", playerId.toString(), null)
+			schedulerId = SchedulerManagerSystem.createOrGetScheduler(
+				SchedulerManagerSystem.SchedulerBinding.player(TASK_TYPE_HUNGER_TICK, playerId)
 			);
 			PLAYER_SCHEDULER_IDS.put(playerId, schedulerId);
 		}
@@ -430,8 +423,8 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 			return;
 		}
 
-		String created = MadokuScheduler.createScheduler(
-			MadokuScheduler.SchedulerOwner.of("player", playerId.toString(), null)
+		String created = SchedulerManagerSystem.createOrGetScheduler(
+			SchedulerManagerSystem.SchedulerBinding.player(TASK_TYPE_HUNGER_TICK, playerId)
 		);
 		PLAYER_SCHEDULER_IDS.put(playerId, created);
 		if (enqueueHungerTask(created, delay)) {
@@ -446,15 +439,15 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 			return false;
 		}
 
-		MadokuScheduler.EnqueueStatus status = MadokuScheduler.enqueue(
+		SchedulerManagerSystem.EnqueueStatus status = SchedulerManagerSystem.enqueue(
 			targetSchedulerId,
 			Math.max(0L, delay),
 			TASK_TYPE_HUNGER_TICK,
 			new JsonObject(),
-			MadokuScheduler.TickDomain.GAMEPLAY
+			SchedulerManagerSystem.TickDomain.GAMEPLAY
 		);
-		return status == MadokuScheduler.EnqueueStatus.ACCEPTED
-			|| status == MadokuScheduler.EnqueueStatus.QUEUE_FULL;
+		return status == SchedulerManagerSystem.EnqueueStatus.ACCEPTED
+			|| status == SchedulerManagerSystem.EnqueueStatus.QUEUE_FULL;
 	}
 
 	private static void processFoodChanges(ServerPlayer player, PlayerState state, long gameplayTick, int maxHungerPoints) {
@@ -913,9 +906,9 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 
 		try {
 			Path configFile = MadokuAttributes.prepareSystemConfigFile(HUNGER_CONFIG_DIRECTORY_NAME, HUNGER_CONFIG_FILE_NAME);
-			JsonObject normalized = StaticJsonSystem.ensureManagedFile(configFile, defaults);
+			JsonObject normalized = JsonStaticSystem.ensureManagedFile(configFile, defaults);
 			Settings configured = Settings.fromJson(normalized);
-			StaticJsonSystem.writeManagedFile(configFile, configured.toConfigJson(), defaults);
+			JsonStaticSystem.writeManagedFile(configFile, configured.toConfigJson(), defaults);
 			settings = configured.withEnabled(MadokuAttributes.isEnabled());
 		} catch (IOException | RuntimeException exception) {
 			settings = fallback.withEnabled(MadokuAttributes.isEnabled());
@@ -1147,3 +1140,4 @@ private static final long AUTOSAVE_INTERVAL_TICKS = 60L * 20L;
 		}
 	}
 }
+
