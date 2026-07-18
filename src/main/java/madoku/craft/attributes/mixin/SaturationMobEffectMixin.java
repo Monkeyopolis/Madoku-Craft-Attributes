@@ -1,6 +1,6 @@
 package madoku.craft.attributes.mixin;
 
-import madoku.craft.hunger.MadokuHunger;
+import madoku.craft.attributes.hunger.MadokuHungerManager;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
@@ -18,7 +18,7 @@ public abstract class SaturationMobEffectMixin {
 		int amplifier,
 		CallbackInfoReturnable<Boolean> cir
 	) {
-		if (livingEntity instanceof ServerPlayer player && MadokuHunger.applySaturationEffectTick(player, amplifier)) {
+		if (livingEntity instanceof ServerPlayer && MadokuHungerManager.isSaturationEnabled()) {
 			cir.setReturnValue(true);
 		}
 	}

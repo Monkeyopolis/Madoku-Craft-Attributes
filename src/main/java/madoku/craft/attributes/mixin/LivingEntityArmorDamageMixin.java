@@ -1,6 +1,6 @@
 package madoku.craft.attributes.mixin;
 
-import madoku.craft.armor.MadokuArmor;
+import madoku.craft.attributes.armor.MadokuArmorManager;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
@@ -17,7 +17,7 @@ public abstract class LivingEntityArmorDamageMixin {
 
 	@Inject(method = "getDamageAfterArmorAbsorb", at = @At("HEAD"), cancellable = true)
 	private void madokuCraft$applyMadokuArmor(DamageSource source, float amount, CallbackInfoReturnable<Float> cir) {
-		if (!MadokuArmor.isEnabled()) {
+		if (!MadokuArmorManager.shouldOverrideVanillaArmorDamage(source)) {
 			return;
 		}
 		if (source != null && source.is(DamageTypeTags.BYPASSES_ARMOR) && !source.is(DamageTypeTags.IS_FALL)) {
@@ -29,6 +29,6 @@ public abstract class LivingEntityArmorDamageMixin {
 		}
 
 		LivingEntity entity = (LivingEntity) (Object) this;
-		cir.setReturnValue(MadokuArmor.applyCustomArmorDamage(entity, source, amount));
+		cir.setReturnValue(MadokuArmorManager.applyCustomArmorDamage(entity, source, amount));
 	}
 }

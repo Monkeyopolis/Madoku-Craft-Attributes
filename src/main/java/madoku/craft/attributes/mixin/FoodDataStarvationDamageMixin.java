@@ -1,6 +1,7 @@
 package madoku.craft.attributes.mixin;
 
-import madoku.craft.hunger.MadokuHunger;
+import madoku.craft.attributes.health.MadokuHealthManager;
+import madoku.craft.attributes.hunger.MadokuHungerManager;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
@@ -25,9 +26,26 @@ public abstract class FoodDataStarvationDamageMixin {
 		DamageSource source,
 		float amount
 	) {
-		if (MadokuHunger.isEnabled() && source.is(DamageTypes.STARVE)) {
+		if (MadokuHungerManager.isEnabled() && source.is(DamageTypes.STARVE)) {
 			return false;
 		}
 		return player.hurtServer(level, source, amount);
+	}
+
+	@Redirect(
+		method = "tick",
+		at = @At(
+			value = "INVOKE",
+			target = "Lnet/minecraft/server/level/ServerPlayer;heal(F)V"
+		)
+	)
+	private void madokuCraft$preventVanillaNaturalRegen(
+		ServerPlayer player,
+		float amount
+	) {
+		if (MadokuHealthManager.isEnabled()) {
+			return;
+		}
+		player.heal(amount);
 	}
 }

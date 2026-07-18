@@ -1,6 +1,6 @@
 package madoku.craft.attributes.mixin;
 
-import madoku.craft.luck.MadokuLuck;
+import madoku.craft.attributes.luck.MadokuLuckManager;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.damagesource.DamageSource;
@@ -40,12 +40,14 @@ public abstract class PlayerLuckCriticalHitMixin {
 	@SuppressWarnings("deprecation")
 	private boolean madokuCraft$applyLuckCriticalHit(Entity entity, DamageSource source, float amount) {
 		float resolvedDamage = amount;
-		if (this.canCriticalAttack(entity)) {
-			resolvedDamage /= MadokuLuck.playerCritDamageMultiplier();
+		float vanillaCritMultiplier = MadokuLuckManager.playerCritDamageMultiplier();
+		if (this.canCriticalAttack(entity) && vanillaCritMultiplier > 0.0f) {
+			resolvedDamage /= vanillaCritMultiplier;
 		}
 		Player player = (Player) (Object) this;
-		if (MadokuLuck.shouldApplyPlayerMeleeCrit(player, entity)) {
-			resolvedDamage *= MadokuLuck.playerCritDamageMultiplier();
+		double luckCritMultiplier = MadokuLuckManager.resolvePlayerCriticalDamageMultiplier(player, entity);
+		if (luckCritMultiplier > 0.0d) {
+			resolvedDamage *= (float) luckCritMultiplier;
 			this.madokuCraft$luckCriticalHitActive = true;
 		}
 		return entity.hurtOrSimulate(source, resolvedDamage);

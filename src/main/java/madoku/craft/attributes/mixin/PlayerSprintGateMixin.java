@@ -1,6 +1,6 @@
 package madoku.craft.attributes.mixin;
 
-import madoku.craft.hunger.MadokuHunger;
+import madoku.craft.attributes.hunger.MadokuHungerManager;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class PlayerSprintGateMixin {
 	@Inject(method = "causeFoodExhaustion", at = @At("HEAD"), cancellable = true)
 	private void madokuCraft$disableVanillaExhaustionWithMadokuHunger(float exhaustion, CallbackInfo ci) {
-		if ((Object) this instanceof ServerPlayer && MadokuHunger.isEnabled()) {
+		if ((Object) this instanceof ServerPlayer && MadokuHungerManager.isEnabled()) {
 			ci.cancel();
 		}
 	}
@@ -21,6 +21,6 @@ public abstract class PlayerSprintGateMixin {
 	@Inject(method = "hasEnoughFoodToDoExhaustiveManoeuvres", at = @At("HEAD"), cancellable = true)
 	private void madokuCraft$gateExhaustiveManoeuvresByMadokuHunger(CallbackInfoReturnable<Boolean> cir) {
 		Player player = (Player) (Object) this;
-		cir.setReturnValue(MadokuHunger.hasEnoughFoodToDoExhaustiveManoeuvres(player));
+		cir.setReturnValue(MadokuHungerManager.hasEnoughFoodToDoExhaustiveManoeuvres(player));
 	}
 }

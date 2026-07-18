@@ -1,6 +1,6 @@
 package madoku.craft.attributes.mixin;
 
-import madoku.craft.hunger.MadokuHunger;
+import madoku.craft.attributes.hunger.MadokuHungerManager;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -29,7 +29,7 @@ public abstract class ItemFoodGateMixin {
 			return;
 		}
 
-		if (!MadokuHunger.canConsumeFood(serverPlayer, false)) {
+		if (!MadokuHungerManager.canConsumeFood(serverPlayer, false)) {
 			cir.setReturnValue(InteractionResult.FAIL);
 		}
 	}
@@ -42,7 +42,7 @@ public abstract class ItemFoodGateMixin {
 		if (stack.get(DataComponents.FOOD) == null) {
 			return;
 		}
-		if (!MadokuHunger.canConsumeFood(serverPlayer, false)) {
+		if (!MadokuHungerManager.canConsumeFood(serverPlayer, false)) {
 			cir.setReturnValue(stack);
 		}
 	}
@@ -58,10 +58,6 @@ public abstract class ItemFoodGateMixin {
 			return;
 		}
 
-		if (!MadokuHunger.canConsumeFood(serverPlayer, false)) {
-			return;
-		}
-
-		MadokuHunger.onFoodConsumed(serverPlayer, Math.max(0, food.nutrition()));
+		MadokuHungerManager.onFoodConsumed(serverPlayer, Math.max(0, food.nutrition()));
 	}
 }

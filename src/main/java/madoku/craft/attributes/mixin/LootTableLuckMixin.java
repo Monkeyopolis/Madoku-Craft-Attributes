@@ -1,7 +1,7 @@
 package madoku.craft.attributes.mixin;
 
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import madoku.craft.luck.MadokuLuck;
+import madoku.craft.attributes.luck.MadokuLuckManager;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.storage.loot.LootContext;
 import net.minecraft.world.level.storage.loot.LootTable;
@@ -20,6 +20,6 @@ public class LootTableLuckMixin {
 		LootContext lootContext,
 		CallbackInfoReturnable<ObjectArrayList<ItemStack>> cir
 	) {
-		MadokuLuck.applyGeneratedLoot(lootContext, cir.getReturnValue());
+		MadokuLuckManager.applyGeneratedLoot(lootContext, cir.getReturnValue());
 	}
 }

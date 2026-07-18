@@ -1,7 +1,8 @@
 package madoku.craft.attributes.mixin;
 
-import madoku.craft.health.MadokuHealth;
-import madoku.craft.luck.MadokuLuck;
+import madoku.craft.attributes.health.MadokuHealthManager;
+import madoku.craft.attributes.luck.MadokuLuckManager;
+import madoku.craft.attributes.oxygen.MadokuOxygenManager;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
@@ -30,8 +31,9 @@ public abstract class LivingEntityEffectAttributeOverrideMixin {
 		Entity source
 	) {
 		if (
-			MadokuHealth.shouldOverrideVanillaEffectAttributes((LivingEntity) (Object) this, effect)
-				|| MadokuLuck.shouldOverrideVanillaEffectAttributes((LivingEntity) (Object) this, effect)
+			MadokuHealthManager.shouldOverrideVanillaEffectAttributes((LivingEntity) (Object) this, effect)
+				|| MadokuLuckManager.shouldOverrideVanillaLuckEffect((LivingEntity) (Object) this, effect)
+				|| MadokuOxygenManager.shouldOverrideVanillaEffectAttributes((LivingEntity) (Object) this, effect)
 		) {
 			return;
 		}
@@ -53,8 +55,9 @@ public abstract class LivingEntityEffectAttributeOverrideMixin {
 		Entity source
 	) {
 		if (
-			MadokuHealth.shouldOverrideVanillaEffectAttributes((LivingEntity) (Object) this, effect)
-				|| MadokuLuck.shouldOverrideVanillaEffectAttributes((LivingEntity) (Object) this, effect)
+			MadokuHealthManager.shouldOverrideVanillaEffectAttributes((LivingEntity) (Object) this, effect)
+				|| MadokuLuckManager.shouldOverrideVanillaLuckEffect((LivingEntity) (Object) this, effect)
+				|| MadokuOxygenManager.shouldOverrideVanillaEffectAttributes((LivingEntity) (Object) this, effect)
 		) {
 			return;
 		}
@@ -77,8 +80,9 @@ public abstract class LivingEntityEffectAttributeOverrideMixin {
 		Entity source
 	) {
 		if (
-			MadokuHealth.shouldOverrideVanillaEffectAttributes((LivingEntity) (Object) this, effect)
-				|| MadokuLuck.shouldOverrideVanillaEffectAttributes((LivingEntity) (Object) this, effect)
+			MadokuHealthManager.shouldOverrideVanillaEffectAttributes((LivingEntity) (Object) this, effect)
+				|| MadokuLuckManager.shouldOverrideVanillaLuckEffect((LivingEntity) (Object) this, effect)
+				|| MadokuOxygenManager.shouldOverrideVanillaEffectAttributes((LivingEntity) (Object) this, effect)
 		) {
 			return;
 		}
@@ -98,8 +102,9 @@ public abstract class LivingEntityEffectAttributeOverrideMixin {
 		Collection<MobEffectInstance> effects
 	) {
 		if (
-			MadokuHealth.shouldOverrideVanillaEffectAttributes((LivingEntity) (Object) this, effect)
-				|| MadokuLuck.shouldOverrideVanillaEffectAttributes((LivingEntity) (Object) this, effect)
+			MadokuHealthManager.shouldOverrideVanillaEffectAttributes((LivingEntity) (Object) this, effect)
+				|| MadokuLuckManager.shouldOverrideVanillaLuckEffect((LivingEntity) (Object) this, effect)
+				|| MadokuOxygenManager.shouldOverrideVanillaEffectAttributes((LivingEntity) (Object) this, effect)
 		) {
 			return;
 		}

@@ -1,9 +1,9 @@
 package madoku.craft.attributes.mixin;
 
-import madoku.craft.luck.MadokuPlacedBlocks;
+import madoku.craft.api.data.MadokuChunkDataManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.InteractionResult;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
@@ -16,24 +16,24 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(BlockItem.class)
 public abstract class BlockItemPlacedBlocksMixin {
 	@Inject(
-		method = "place(Lnet/minecraft/world/item/context/BlockPlaceContext;)Lnet/minecraft/world/InteractionResult;",
+		method = "placeBlock(Lnet/minecraft/world/item/context/BlockPlaceContext;Lnet/minecraft/world/level/block/state/BlockState;)Z",
 		at = @At("RETURN")
 	)
 	private void madokuCraft$trackPlacedBlock(
 		BlockPlaceContext context,
-		CallbackInfoReturnable<InteractionResult> cir
+		BlockState state,
+		CallbackInfoReturnable<Boolean> cir
 	) {
 		if (context == null) {
 			return;
 		}
 
 		Level level = context.getLevel();
-		if (!(level instanceof ServerLevel serverLevel)) {
+		if (!(level instanceof ServerLevel serverLevel) || !(context.getPlayer() instanceof ServerPlayer)) {
 			return;
 		}
 
-		InteractionResult result = cir.getReturnValue();
-		if (result == null || !result.consumesAction()) {
+		if (!Boolean.TRUE.equals(cir.getReturnValue())) {
 			return;
 		}
 
@@ -42,12 +42,11 @@ public abstract class BlockItemPlacedBlocksMixin {
 			return;
 		}
 
-		BlockState placedState = serverLevel.getBlockState(placedPos);
-		if (placedState.isAir()) {
+		if (state == null || serverLevel.getBlockState(placedPos).isAir()) {
 			return;
 		}
 
-		MadokuPlacedBlocks.recordPlacedBlock(serverLevel, placedPos);
+		MadokuChunkDataManager.recordPlayerPlacedBlock(serverLevel, placedPos);
 	}
 
 	private static BlockPos resolvePlacedPos(BlockPlaceContext context) {

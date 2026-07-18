@@ -1,55 +1,56 @@
 package madoku.craft.attributes;
 
+import madoku.craft.api.data.MadokuChunkDataManager;
+import madoku.craft.api.data.MadokuDataManager;
+import madoku.craft.attributes.health.MadokuHealthManager;
+import madoku.craft.attributes.hunger.MadokuHungerManager;
+import madoku.craft.attributes.oxygen.MadokuOxygenManager;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import madoku.craft.armor.MadokuArmor;
-import madoku.craft.health.MadokuHealth;
-import madoku.craft.hunger.MadokuHunger;
-import madoku.craft.luck.MadokuLuck;
-import madoku.craft.luck.MadokuPlacedBlocks;
-import madoku.craft.oxygen.MadokuOxygen;
 
-public class MadokuCraftAttributes implements ModInitializer {
+public final class MadokuCraftAttributes implements ModInitializer {
 	public static final String MOD_ID = "madoku-craft-attributes";
 
 	@Override
 	public void onInitialize() {
-		MadokuAttributes.initialize();
-		MadokuArmor.initialize();
-		MadokuHealth.initialize();
-		MadokuHunger.initialize();
-		MadokuLuck.initialize();
-		MadokuPlacedBlocks.initialize();
-		MadokuOxygen.initialize();
+		MadokuAttributesManager.initialize();
+		MadokuChunkDataManager.initialize();
 
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-			MadokuHealth.reset();
-			MadokuHunger.reset();
-			MadokuPlacedBlocks.reset();
-			MadokuOxygen.reset();
-			MadokuHealth.loadPersistedData(server);
-			MadokuHunger.loadPersistedData(server);
-			MadokuPlacedBlocks.loadPersistedData(server);
-			MadokuOxygen.loadPersistedData(server);
+			MadokuChunkDataManager.reset();
+			MadokuChunkDataManager.loadPersistedData(server);
+			MadokuHealthManager.reset();
+			MadokuHungerManager.reset();
+			MadokuOxygenManager.reset();
+			MadokuHealthManager.loadPersistedData(server);
+			MadokuHungerManager.loadPersistedData(server);
+			MadokuOxygenManager.loadPersistedData(server);
+			MadokuHealthManager.onServerStarted(server);
+			MadokuHungerManager.onServerStarted(server);
+			MadokuOxygenManager.onServerStarted(server);
+		});
+
+		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+			MadokuHealthManager.savePersistedData(server);
+			MadokuHungerManager.savePersistedData(server);
+			MadokuOxygenManager.savePersistedData(server);
+			MadokuChunkDataManager.savePersistedData(server);
+			MadokuDataManager.savePersistedData(server);
 		});
 
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
-			MadokuHealth.savePersistedData(server);
-			MadokuHunger.savePersistedData(server);
-			MadokuPlacedBlocks.savePersistedData(server);
-			MadokuOxygen.savePersistedData(server);
-			MadokuHealth.reset();
-			MadokuHunger.reset();
-			MadokuPlacedBlocks.reset();
-			MadokuOxygen.reset();
+			MadokuHealthManager.reset();
+			MadokuHungerManager.reset();
+			MadokuOxygenManager.reset();
+			MadokuChunkDataManager.reset();
 		});
 
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
-			MadokuHealth.autosavePersistedData(server);
-			MadokuHunger.autosavePersistedData(server);
-			MadokuPlacedBlocks.autosavePersistedData(server);
-			MadokuOxygen.autosavePersistedData(server);
+			MadokuHealthManager.autosavePersistedData(server);
+			MadokuHungerManager.autosavePersistedData(server);
+			MadokuOxygenManager.autosavePersistedData(server);
+			MadokuChunkDataManager.autosavePersistedData(server);
 		});
 	}
 }

@@ -1,6 +1,6 @@
 package madoku.craft.attributes.mixin;
 
-import madoku.craft.hunger.MadokuHunger;
+import madoku.craft.attributes.hunger.MadokuHungerManager;
 import net.minecraft.server.commands.EffectCommands;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffects;
@@ -14,14 +14,14 @@ public abstract class EffectCommandsSaturationDurationMixin {
 		method = "giveEffect",
 		at = @At(
 			value = "INVOKE",
-			target = "Lnet/minecraft/world/effect/MobEffect;isInstantenous()Z"
+			target = "Lnet/minecraft/world/effect/MobEffect;isInstantaneous()Z"
 		)
 	)
 	private static boolean madokuCraft$overrideSaturationInstantDuration(MobEffect effect) {
-		if (MadokuHunger.isEnabled() && effect == MobEffects.SATURATION.value()) {
+		if (MadokuHungerManager.isSaturationEnabled() && effect == MobEffects.SATURATION.value()) {
 			// Treat saturation as a timed effect for command duration conversion (seconds -> ticks).
 			return false;
 		}
-		return effect.isInstantenous();
+		return effect.isInstantaneous();
 	}
 }

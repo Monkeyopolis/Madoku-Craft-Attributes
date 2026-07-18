@@ -1,6 +1,6 @@
 package madoku.craft.attributes.mixin;
 
-import madoku.craft.luck.MadokuLuck;
+import madoku.craft.attributes.luck.MadokuLuckManager;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
@@ -28,7 +28,7 @@ public abstract class LivingEntityLuckLootMixin {
 		boolean causedByPlayer,
 		ResourceKey<LootTable> lootTableKey
 	) {
-		return MadokuLuck.wrapMobDeathLootConsumer(
+		return MadokuLuckManager.wrapMobDeathLootConsumer(
 			level,
 			(LivingEntity) (Object) this,
 			damageSource,
