@@ -1,0 +1,38 @@
+
+package madoku.craft.attributes.mixin;
+
+import madoku.craft.attributes.health.MadokuHealthManager;
+import madoku.craft.attributes.hunger.MadokuHungerManager;
+import madoku.craft.attributes.luck.MadokuLuckManager;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.entity.LivingEntity;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+@Mixin(targets = {
+	"net.minecraft.world.effect.PoisonMobEffect",
+	"net.minecraft.world.effect.WitherMobEffect",
+	"net.minecraft.world.effect.RegenerationMobEffect",
+	"net.minecraft.world.effect.AbsorptionMobEffect",
+	"net.minecraft.world.effect.HungerMobEffect"
+})
+public abstract class MobEffectTickOverrideMixin {
+	@Inject(method = "applyEffectTick", at = @At("HEAD"), cancellable = true)
+	private void madokuCraft$overrideVanillaEffectTick(
+		ServerLevel level,
+		LivingEntity livingEntity,
+		int amplifier,
+		CallbackInfoReturnable<Boolean> cir
+	) {
+		if (MadokuHealthManager.shouldOverrideVanillaEffect(livingEntity, (MobEffect) (Object) this)
+			|| MadokuHungerManager.shouldOverrideVanillaEffect(livingEntity, (MobEffect) (Object) this)
+			|| MadokuLuckManager.shouldOverrideVanillaLuckEffect(livingEntity, (MobEffect) (Object) this)) {
+			cir.setReturnValue(true);
+		}
+	}
+}
+
+

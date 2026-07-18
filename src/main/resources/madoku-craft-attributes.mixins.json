@@ -1,31 +1,32 @@
 {
-  "required": true,
-  "package": "madoku.craft.mixin",
-  "compatibilityLevel": "JAVA_21",
-  "mixins": [
-    "BlockItemPlacedBlocksMixin",
-    "BlockLuckContextMixin",
-    "EffectCommandsSaturationDurationMixin",
-    "FoodDataStarvationDamageMixin",
-    "ItemFoodGateMixin",
-    "LivingEntityArmorDamageMixin",
-    "LivingEntityEffectAttributeOverrideMixin",
-    "LivingEntityEffectMixin",
-    "LivingEntityLuckLootMixin",
-    "LivingEntityMaxAirSupplyMixin",
-    "LootTableLuckMixin",
-    "MobEffectTickOverrideMixin",
-    "PlayerEatGateMixin",
-    "PlayerLuckCriticalHitMixin",
-    "PlayerSprintGateMixin",
-    "SaturationMobEffectMixin",
-    "ServerPlayerDrowningDamageMixin"
-  ],
-  "client": [
-    "client.ItemFoodClientGateMixin",
-    "client.PlayerEatClientGateMixin"
-  ],
-  "injectors": {
-    "defaultRequire": 1
-  }
+	"required": true,
+	"package": "madoku.craft.attributes.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"BlockItemPlacedBlocksMixin",
+		"BlockLuckContextMixin",
+		"EffectCommandsSaturationDurationMixin",
+		"FoodDataStarvationDamageMixin",
+		"ItemFoodGateMixin",
+		"LivingEntityArmorDamageMixin",
+		"LivingEntityEffectAttributeOverrideMixin",
+		"LivingEntityEffectMixin",
+		"LivingEntityLuckLootMixin",
+		"LootTableLuckMixin",
+		"MobEffectTickOverrideMixin",
+		"PlayerEatGateMixin",
+		"PlayerLuckCriticalHitMixin",
+		"PlayerSprintGateMixin",
+		"SaturationMobEffectMixin",
+		"ServerPlayerDrowningDamageMixin"
+	],
+	"client": [
+		"client.ClientPacketListenerFoodMixin",
+		"client.ItemFoodClientGateMixin",
+		"client.PlayerEatClientGateMixin",
+		"client.ItemFoodClientPredictionMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
 }

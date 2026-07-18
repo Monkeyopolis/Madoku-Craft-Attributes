@@ -3,31 +3,30 @@
 	"id": "madoku-craft-attributes",
 	"version": "${version}",
 	"name": "Madoku Craft Attributes",
-	"description": "Ports Mother MOD health, hunger, armor, and oxygen systems on top of Madoku Craft API.",
+	"description": "A configurable Attribute overhaul system.",
 	"authors": [
-		"Me!"
+		"Monkeyopolis"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"sources": "https://github.com/Monkeyopolis/Madoku-Craft-Attributes"
 	},
 	"license": "CC0-1.0",
 	"icon": "assets/madoku-craft-attributes/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"madoku.craft.MadokuCraftAttributes"
+			"madoku.craft.attributes.MadokuCraftAttributes"
 		],
 		"client": [
-			"madoku.craft.MadokuCraftAttributesClient"
+			"madoku.craft.attributes.MadokuCraftAttributesClient"
 		]
 	},
 	"mixins": [
 		"madoku-craft-attributes.mixins.json"
 	],
 	"depends": {
-		"fabricloader": ">=0.18.4",
-		"minecraft": "~1.21.11",
+		"fabricloader": ">=0.18.5",
+		"minecraft": "~${minecraft_version}",
 		"java": ">=21",
 		"fabric-api": "*",
 		"madoku-craft-api": ">=${madoku_craft_api_mod_version}"
