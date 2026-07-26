@@ -7,7 +7,6 @@ import madoku.craft.attributes.MadokuCraftAttributes;
 import madoku.craft.attributes.MadokuAttributesManager;
 import madoku.craft.api.time.MadokuTimeManager;
 import madoku.craft.api.data.DataPlayerManager;
-import madoku.craft.api.debug.MadokuDebugManager;
 import madoku.craft.api.scheduler.MadokuSchedulerManager;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.minecraft.core.Holder;
@@ -320,17 +319,6 @@ public final class MadokuOxygenManager {
 			state.lastProcessedGameplayTick = gameplayTick;
 			refreshEffectModifiers(player);
 			applyVanillaCompatibleAirSupply(player, state.oxygenTicks, oxygenCapTicks);
-			emitOxygenDebug(
-				"oxygen",
-				"oxygen.restored",
-				player,
-				gameplayTick,
-				Map.of(
-					"oxygen_ticks", Integer.toString(state.oxygenTicks),
-					"oxygen_cap_ticks", Integer.toString(oxygenCapTicks),
-					"mode", player.isSpectator() ? "spectator" : "invulnerable"
-				)
-			);
 			return;
 		}
 
@@ -349,39 +337,11 @@ public final class MadokuOxygenManager {
 			} else {
 				state.lastDrowningDamageTick = Long.MIN_VALUE;
 			}
-			emitOxygenDebug(
-				"oxygen",
-				"oxygen.tick_drain",
-				player,
-				gameplayTick,
-				Map.of(
-					"oxygen_before", Integer.toString(oxygenBefore),
-					"drained", Integer.toString(drained),
-					"oxygen_ticks", Integer.toString(state.oxygenTicks),
-					"oxygen_cap_ticks", Integer.toString(oxygenCapTicks),
-					"elapsed_ticks", Long.toString(elapsedTicks),
-					"action", "drain"
-				)
-			);
 		} else {
 			int oxygenBefore = state.oxygenTicks;
 			int recovered = clampInt((int) Math.min(Integer.MAX_VALUE, elapsedTicks * (long) OXYGEN_RECOVERY_PER_TICK), 0, oxygenCapTicks - oxygenBefore);
 			state.oxygenTicks = clampInt(oxygenBefore + recovered, 0, oxygenCapTicks);
 			state.lastDrowningDamageTick = Long.MIN_VALUE;
-			emitOxygenDebug(
-				"oxygen",
-				"oxygen.tick_recover",
-				player,
-				gameplayTick,
-				Map.of(
-					"oxygen_before", Integer.toString(oxygenBefore),
-					"recovered", Integer.toString(recovered),
-					"oxygen_ticks", Integer.toString(state.oxygenTicks),
-					"oxygen_cap_ticks", Integer.toString(oxygenCapTicks),
-					"elapsed_ticks", Long.toString(elapsedTicks),
-					"action", "recover"
-				)
-			);
 		}
 
 		state.lastKnownMaximumOxygenTicks = oxygenCapTicks;
@@ -424,13 +384,6 @@ public final class MadokuOxygenManager {
 			AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL
 		);
 		if (conduitPowerBonus > 0.0d) {
-			emitOxygenDebug(
-				"conduit-power",
-				"oxygen.conduit_power_applied",
-				player,
-				MadokuTimeManager.getGameplayTicks(),
-				Map.of("mining_speed_bonus", Double.toString(conduitPowerBonus))
-			);
 		}
 	}
 
@@ -504,19 +457,6 @@ public final class MadokuOxygenManager {
 		if (contribution <= 0L) {
 			return 0;
 		}
-		if (group != null && !group.isBlank() && entity instanceof ServerPlayer player) {
-			emitOxygenDebug(
-				group,
-				"oxygen.contribution",
-				player,
-				MadokuTimeManager.getGameplayTicks(),
-				Map.of(
-					"effect_level", Integer.toString(level),
-					"contribution_ticks", Long.toString(contribution),
-					"oxygen_value", Long.toString(oxygen.value)
-				)
-			);
-		}
 		if (contribution >= Integer.MAX_VALUE) {
 			return Integer.MAX_VALUE;
 		}
@@ -551,16 +491,6 @@ public final class MadokuOxygenManager {
 		synchronizeOxygenState(player, state, oxygenCapTicks);
 		refreshEffectModifiers(player);
 		applyVanillaCompatibleAirSupply(player, state.oxygenTicks, oxygenCapTicks);
-		emitOxygenDebug(
-			"oxygen",
-			"oxygen.join_synced",
-			player,
-			MadokuTimeManager.getGameplayTicks(),
-			Map.of(
-				"oxygen_ticks", Integer.toString(state.oxygenTicks),
-				"oxygen_cap_ticks", Integer.toString(oxygenCapTicks)
-			)
-		);
 	}
 
 	private static void handlePlayerRespawn(ServerPlayer oldPlayer, ServerPlayer newPlayer, boolean alive) {
@@ -576,16 +506,6 @@ public final class MadokuOxygenManager {
 		state.lastProcessedGameplayTick = MadokuTimeManager.getGameplayTicks();
 		refreshEffectModifiers(newPlayer);
 		applyVanillaCompatibleAirSupply(newPlayer, state.oxygenTicks, oxygenCapTicks);
-		emitOxygenDebug(
-			"oxygen",
-			"oxygen.respawn_synced",
-			newPlayer,
-			MadokuTimeManager.getGameplayTicks(),
-			Map.of(
-				"oxygen_ticks", Integer.toString(state.oxygenTicks),
-				"oxygen_cap_ticks", Integer.toString(oxygenCapTicks)
-			)
-		);
 	}
 
 	private static void applyCustomDrowningDamage(ServerPlayer player, PlayerState state, long gameplayTick, long zeroCrossTick) {
@@ -622,18 +542,6 @@ public final class MadokuOxygenManager {
 			nextDamageTick += SUFFOCATING_PENALTY_INTERVAL_TICKS;
 		}
 		if (damageApplications > 0L) {
-			emitOxygenDebug(
-				"suffocating-penalty",
-				"oxygen.suffocating_penalty_applied",
-				player,
-				gameplayTick,
-				Map.of(
-					"damage", Float.toString(adjustedDamage),
-					"oxygen_ticks", Integer.toString(state.oxygenTicks),
-					"damage_applications", Long.toString(damageApplications),
-					"zero_cross_tick", Long.toString(zeroCrossTick)
-				)
-			);
 		}
 	}
 
@@ -795,31 +703,6 @@ public final class MadokuOxygenManager {
 		}
 	}
 
-	private static void emitOxygenDebug(String group, String metricId, ServerPlayer player, long gameplayTick, Map<String, String> fields) {
-		if (player == null || metricId == null || metricId.isBlank()) {
-			return;
-		}
-		String entry = MadokuDebugManager.resolveCallerMethodName();
-		if (!MadokuDebugManager.shouldEmit("attributes", "oxygen", entry)) {
-			return;
-		}
-
-		MadokuDebugManager.EventBuilder builder = MadokuDebugManager.event(metricId, "attributes", "oxygen", entry)
-			.side(MadokuDebugManager.Side.SERVER)
-			.tick(gameplayTick)
-			.subject("player:" + player.getUUID());
-		if (player.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-			builder.world(serverLevel.dimension().toString());
-		}
-		if (fields != null) {
-			for (Map.Entry<String, String> fieldEntry : fields.entrySet()) {
-				if (fieldEntry != null) {
-					builder.field(fieldEntry.getKey(), fieldEntry.getValue());
-				}
-			}
-		}
-		builder.log();
-	}
 
 	private static int clampInt(int value, int min, int max) {
 		return Math.max(min, Math.min(max, value));

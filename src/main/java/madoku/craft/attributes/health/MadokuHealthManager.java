@@ -11,7 +11,6 @@ import madoku.craft.attributes.MadokuAttributesManager;
 import madoku.craft.api.time.MadokuTimeManager;
 import madoku.craft.api.data.DataPlayerManager;
 import madoku.craft.api.json.JSONFormatManager;
-import madoku.craft.api.debug.MadokuDebugManager;
 import madoku.craft.attributes.hunger.MadokuHungerManager;
 import madoku.craft.api.scheduler.MadokuSchedulerManager;
 import net.minecraft.resources.Identifier;
@@ -103,16 +102,6 @@ public final class MadokuHealthManager {
 		applyPersistedData(data);
 		long autoSaveIntervalTicks = DataPlayerManager.getAutoSaveIntervalTicks();
 		lastAutosaveBucket = Math.floorDiv(MadokuTimeManager.getGameplayTicks(), autoSaveIntervalTicks);
-		emitHealthSystemDebug(
-			"health.persisted_state_loaded",
-			Map.of(
-				"player_states", Integer.toString(PLAYER_STATES.size()),
-				"online_players", Integer.toString(server.getPlayerList().getPlayers().size()),
-				"health_enabled", Boolean.toString(settings.health.enabled),
-				"health_boost_enabled", Boolean.toString(settings.main.healthBoost.enabled),
-				"absorption_enabled", Boolean.toString(settings.main.absorption.enabled)
-			)
-		);
 	}
 
 	public static void autosavePersistedData(MinecraftServer server) {
@@ -332,43 +321,14 @@ public final class MadokuHealthManager {
 		}
 
 		player.setHealth(target);
-		String debugEntry = MadokuDebugManager.resolveCallerMethodName(0);
-		if (MadokuDebugManager.shouldEmit("attributes", "health", debugEntry)) {
-			MadokuDebugManager.event("health.effect_poison_tick", "attributes", "health", debugEntry)
-				.side(MadokuDebugManager.Side.SERVER)
-				.tick(gameplayTick)
-				.subject("player:" + player.getUUID())
-				.field("health_before", formatFloat(current))
-				.field("health_after", formatFloat(player.getHealth()))
-				.field("max_health", formatFloat(maxHealth))
-				.field("health_ratio", Double.toString(maxHealth <= EPSILON ? 0.0d : (double) current / (double) maxHealth))
-				.field("penalty_threshold", Double.toString(settings.main.poison.poisonPenalty.penaltyPercentage))
-				.field("level", poisonLevel)
-				.field("damage", formatFloat(damage))
-				.log();
-		}
 	}
 
 	private static void applyWitherTick(ServerPlayer player, long gameplayTick, int witherLevel) {
-		float healthBefore = player.getHealth();
 		float damage = (float) resolveEffectAmount(player.getMaxHealth(), settings.main.wither, witherLevel);
 		if (damage <= EPSILON) {
 			return;
 		}
 		player.hurtServer(player.level(), player.damageSources().wither(), damage);
-		String debugEntry = MadokuDebugManager.resolveCallerMethodName(0);
-		if (MadokuDebugManager.shouldEmit("attributes", "health", debugEntry)) {
-			MadokuDebugManager.event("health.effect_wither_tick", "attributes", "health", debugEntry)
-				.side(MadokuDebugManager.Side.SERVER)
-				.tick(gameplayTick)
-				.subject("player:" + player.getUUID())
-				.field("health_before", formatFloat(healthBefore))
-				.field("health_after", formatFloat(player.getHealth()))
-				.field("max_health", formatFloat(player.getMaxHealth()))
-				.field("level", witherLevel)
-				.field("damage", formatFloat(damage))
-				.log();
-		}
 	}
 
 	private static void applyRegenerationTick(ServerPlayer player, PlayerState state, long gameplayTick, int regenerationLevel) {
@@ -391,22 +351,9 @@ public final class MadokuHealthManager {
 		player.setHealth(target);
 		state.lastPendingActivityTick = gameplayTick;
 
-		String debugEntry = MadokuDebugManager.resolveCallerMethodName(0);
-		if (MadokuDebugManager.shouldEmit("attributes", "health", debugEntry)) {
-			MadokuDebugManager.event("health.effect_regeneration_tick", "attributes", "health", debugEntry)
-				.side(MadokuDebugManager.Side.SERVER)
-				.tick(gameplayTick)
-				.subject("player:" + player.getUUID())
-				.field("health_before", formatFloat(current))
-				.field("health_after", formatFloat(player.getHealth()))
-				.field("max_health", formatFloat(maxHealth))
-				.field("healed", formatFloat(target - current))
-				.log();
-		}
 	}
 
 	private static void collectPendingHealthFromHunger(ServerPlayer player, PlayerState state, long gameplayTick) {
-		float pendingBefore = state.pendingHealth;
 		float missingHealth = player.getMaxHealth() - player.getHealth();
 		float hungerRatio = hungerRatio(player);
 		boolean hasRecoveryNeed = missingHealth > EPSILON;
@@ -433,23 +380,6 @@ public final class MadokuHealthManager {
 			state.highHungerDrainActive = false;
 		}
 
-		String debugEntry = MadokuDebugManager.resolveCallerMethodName(0);
-		if (MadokuDebugManager.shouldEmit("attributes", "health", debugEntry)) {
-			MadokuDebugManager.event("health.pending_collected", "attributes", "health", debugEntry)
-				.side(MadokuDebugManager.Side.SERVER)
-				.tick(gameplayTick)
-				.subject("player:" + player.getUUID())
-				.field("health_before", formatFloat(player.getHealth()))
-				.field("max_health", formatFloat(player.getMaxHealth()))
-				.field("missing_health", formatFloat(missingHealth))
-				.field("hunger_ratio", formatFloat(hungerRatio))
-				.field("drain_threshold", Double.toString(settings.health.hungerDrainPercentage))
-				.field("high_hunger_drain_active", Boolean.toString(state.highHungerDrainActive))
-				.field("pending_health_before", formatFloat(pendingBefore))
-				.field("hunger_drained", drained)
-				.field("pending_health", formatFloat(state.pendingHealth))
-				.log();
-		}
 	}
 
 	private static void applyPendingHealth(ServerPlayer player, PlayerState state, long gameplayTick) {
@@ -475,8 +405,6 @@ public final class MadokuHealthManager {
 			return;
 		}
 
-		float healthBefore = player.getHealth();
-		float pendingBefore = state.pendingHealth;
 		player.setHealth(targetHealth);
 		state.pendingHealth -= appliedHealing;
 		if (state.pendingHealth < EPSILON) {
@@ -484,20 +412,6 @@ public final class MadokuHealthManager {
 		}
 		state.lastPendingActivityTick = gameplayTick;
 
-		String debugEntry = MadokuDebugManager.resolveCallerMethodName(0);
-		if (MadokuDebugManager.shouldEmit("attributes", "health", debugEntry)) {
-			MadokuDebugManager.event("health.pending_applied", "attributes", "health", debugEntry)
-				.side(MadokuDebugManager.Side.SERVER)
-				.tick(gameplayTick)
-				.subject("player:" + player.getUUID())
-				.field("health_before", formatFloat(healthBefore))
-				.field("health_after", formatFloat(player.getHealth()))
-				.field("max_health", formatFloat(player.getMaxHealth()))
-				.field("pending_health_before", formatFloat(pendingBefore))
-				.field("pending_health_after", formatFloat(state.pendingHealth))
-				.field("healed", formatFloat(appliedHealing))
-				.log();
-		}
 	}
 
 	private static void clearIdlePendingHealth(PlayerState state, UUID playerId, long gameplayTick) {
@@ -510,23 +424,10 @@ public final class MadokuHealthManager {
 			return;
 		}
 
-		float pendingBefore = state.pendingHealth;
 		state.pendingHealth = 0.0f;
 		state.highHungerDrainActive = false;
 		state.lastPendingActivityTick = gameplayTick;
 
-		String debugEntry = MadokuDebugManager.resolveCallerMethodName(0);
-		if (MadokuDebugManager.shouldEmit("attributes", "health", debugEntry)) {
-			MadokuDebugManager.event("health.pending_idle_cleared", "attributes", "health", debugEntry)
-				.side(MadokuDebugManager.Side.SERVER)
-				.tick(gameplayTick)
-				.subject("player:" + playerId)
-				.field("idle_ticks", Long.toString(idleTicks))
-				.field("timeout_ticks", Long.toString(PENDING_IDLE_TIMEOUT_TICKS))
-				.field("pending_before", formatFloat(pendingBefore))
-				.field("pending_after", formatFloat(state.pendingHealth))
-				.log();
-		}
 	}
 
 	private static void applyLowHungerMaxHealthScaling(ServerPlayer player, PlayerState state, long gameplayTick) {
@@ -542,7 +443,6 @@ public final class MadokuHealthManager {
 
 		double targetMultiplier = calculateMaxHealthMultiplier(hungerRatio(player));
 		if (Math.abs(targetMultiplier - state.appliedMaxHealthMultiplier) > 1.0e-5d) {
-			double previousMultiplier = state.appliedMaxHealthMultiplier;
 			if (Math.abs(targetMultiplier - 1.0d) <= 1.0e-5d) {
 				maxHealthAttribute.removeModifier(LOW_HUNGER_MAX_HEALTH_MODIFIER_ID);
 			} else {
@@ -556,21 +456,6 @@ public final class MadokuHealthManager {
 			}
 
 			state.appliedMaxHealthMultiplier = targetMultiplier;
-			String debugEntry = MadokuDebugManager.resolveCallerMethodName(0);
-			if (MadokuDebugManager.shouldEmit("attributes", "health", debugEntry)) {
-				MadokuDebugManager.event("health.max_health_scaled", "attributes", "health", debugEntry)
-					.side(MadokuDebugManager.Side.SERVER)
-					.tick(gameplayTick)
-					.subject("player:" + player.getUUID())
-					.field("base_max_health", Double.toString(targetBaseMaxHealth))
-					.field("current_health", formatFloat(player.getHealth()))
-					.field("hunger_ratio", Double.toString(hungerRatio(player)))
-					.field("threshold", Double.toString(settings.health.healthPenalty.hungerPenaltyPercentage))
-					.field("previous_multiplier", String.format("%.3f", previousMultiplier))
-					.field("multiplier", String.format("%.3f", targetMultiplier))
-					.field("food_level", player.getFoodData().getFoodLevel())
-					.log();
-			}
 		}
 
 		float maxHealth = player.getMaxHealth();
@@ -627,19 +512,6 @@ public final class MadokuHealthManager {
 		}
 
 		if (modifierChanged) {
-			String debugEntry = MadokuDebugManager.resolveCallerMethodName(0);
-			if (MadokuDebugManager.shouldEmit("attributes", "health", debugEntry)) {
-				MadokuDebugManager.event("health.effect_health_boost_scaled", "attributes", "health", debugEntry)
-				.side(MadokuDebugManager.Side.SERVER)
-				.tick(gameplayTick)
-				.subject("player:" + player.getUUID())
-				.field("effect_level", healthBoostLevel)
-				.field("reference_max_health", Double.toString(referenceMaxHealth))
-				.field("current_max_health", formatFloat(player.getMaxHealth()))
-				.field("previous_bonus_amount", String.format("%.3f", previousBonusAmount))
-				.field("bonus_amount", String.format("%.3f", state.appliedHealthBoostAmount))
-				.log();
-			}
 		}
 	}
 
@@ -662,18 +534,6 @@ public final class MadokuHealthManager {
 
 		player.setAbsorptionAmount(targetAbsorption);
 		state.appliedAbsorptionAmount = targetAbsorption;
-		String debugEntry = MadokuDebugManager.resolveCallerMethodName(0);
-		if (MadokuDebugManager.shouldEmit("attributes", "health", debugEntry)) {
-			MadokuDebugManager.event("health.effect_absorption_scaled", "attributes", "health", debugEntry)
-				.side(MadokuDebugManager.Side.SERVER)
-				.tick(gameplayTick)
-				.subject("player:" + player.getUUID())
-				.field("effect_level", absorptionLevel)
-				.field("current_max_health", formatFloat(player.getMaxHealth()))
-				.field("previous_absorption", formatFloat(previousAbsorption))
-				.field("absorption", formatFloat(targetAbsorption))
-				.log();
-		}
 	}
 
 	private static int drainFood(ServerPlayer player, int amount) {
@@ -734,7 +594,6 @@ public final class MadokuHealthManager {
 			return;
 		}
 
-		float healthBefore = newPlayer.getHealth();
 		float targetHealth = Math.max(0.5f, newPlayer.getMaxHealth() * settings.health.respawnHealthPercentage);
 		targetHealth = Math.min(newPlayer.getMaxHealth(), quantizeHealth(targetHealth));
 		newPlayer.setHealth(targetHealth);
@@ -753,31 +612,6 @@ public final class MadokuHealthManager {
 		state.appliedHealthBoostAmount = 0.0d;
 		state.appliedAbsorptionAmount = 0.0f;
 		state.onlineThisSession = true;
-		emitHealthSystemDebug(
-			"health.player_respawn_snapshot",
-			Map.of(
-				"player", newPlayer.getScoreboardName(),
-				"health", formatFloat(newPlayer.getHealth()),
-				"max_health", formatFloat(newPlayer.getMaxHealth()),
-				"saved_health", formatFloat(state.savedHealth),
-				"pending_health", formatFloat(state.pendingHealth),
-				"high_hunger_drain_active", Boolean.toString(state.highHungerDrainActive)
-			)
-		);
-
-		String debugEntry = MadokuDebugManager.resolveCallerMethodName(0);
-		if (MadokuDebugManager.shouldEmit("attributes", "health", debugEntry)) {
-			MadokuDebugManager.event("health.respawn_half_health", "attributes", "health", debugEntry)
-				.side(MadokuDebugManager.Side.SERVER)
-				.tick(MadokuTimeManager.getGameplayTicks())
-				.subject("player:" + newPlayer.getUUID())
-				.field("respawn_percentage", Float.toString(settings.health.respawnHealthPercentage))
-				.field("health_before", formatFloat(healthBefore))
-				.field("health_after", formatFloat(newPlayer.getHealth()))
-				.field("health", formatFloat(newPlayer.getHealth()))
-				.field("max_health", formatFloat(newPlayer.getMaxHealth()))
-				.log();
-		}
 	}
 
 	private static void handleAfterPlayerDamage(
@@ -797,20 +631,6 @@ public final class MadokuHealthManager {
 		state.lastProcessedGameplayTick = MadokuTimeManager.getGameplayTicks();
 		state.highHungerDrainActive = player.getHealth() + EPSILON < player.getMaxHealth();
 
-		String debugEntry = MadokuDebugManager.resolveCallerMethodName(0);
-		if (MadokuDebugManager.shouldEmit("attributes", "health", debugEntry)) {
-			MadokuDebugManager.event("health.damage_detected", "attributes", "health", debugEntry)
-				.side(MadokuDebugManager.Side.SERVER)
-				.tick(MadokuTimeManager.getGameplayTicks())
-				.subject("player:" + player.getUUID())
-				.field("damage_source", source == null ? "unknown" : source.toString())
-				.field("health_after", formatFloat(player.getHealth()))
-				.field("max_health", formatFloat(player.getMaxHealth()))
-				.field("high_hunger_drain_active", Boolean.toString(state.highHungerDrainActive))
-				.field("damage_taken", formatFloat(damageTaken))
-				.field("blocked", blocked)
-				.log();
-		}
 	}
 
 	private static void handlePlayerJoin(ServerPlayer player) {
@@ -824,16 +644,6 @@ public final class MadokuHealthManager {
 		state.lastProcessedGameplayTick = MadokuTimeManager.getGameplayTicks();
 		state.highHungerDrainActive = player.getHealth() + EPSILON < player.getMaxHealth();
 		applyImmediateEffectOverrides(player, state, MadokuTimeManager.getGameplayTicks());
-		emitHealthSystemDebug(
-			"health.player_join_snapshot",
-			Map.of(
-				"player", player.getScoreboardName(),
-				"health", formatFloat(player.getHealth()),
-				"max_health", formatFloat(player.getMaxHealth()),
-				"pending_health", formatFloat(state.pendingHealth),
-				"high_hunger_drain_active", Boolean.toString(state.highHungerDrainActive)
-			)
-		);
 	}
 
 	public static void handlePlayerEffectsChanged(ServerPlayer player) {
@@ -882,15 +692,6 @@ public final class MadokuHealthManager {
 		float targetHealth = quantizeHealth(Math.min(player.getMaxHealth(), state.savedHealth));
 		if (Math.abs(targetHealth - player.getHealth()) > EPSILON) {
 			player.setHealth(targetHealth);
-			emitHealthSystemDebug(
-				"health.join_health_restored",
-				Map.of(
-					"player", player.getScoreboardName(),
-					"saved_health", formatFloat(state.savedHealth),
-					"restored_health", formatFloat(targetHealth),
-					"max_health", formatFloat(player.getMaxHealth())
-				)
-			);
 		}
 	}
 
@@ -1028,28 +829,6 @@ public final class MadokuHealthManager {
 		settings = HealthConfigManager.loadSettings(MadokuAttributesManager.isEnabled());
 	}
 
-	private static void emitHealthSystemDebug(String metricId, Map<String, String> fields) {
-		if (metricId == null || metricId.isBlank()) {
-			return;
-		}
-		String entry = MadokuDebugManager.resolveCallerMethodName();
-		if (!MadokuDebugManager.shouldEmit("attributes", "health", entry)) {
-			return;
-		}
-
-		MadokuDebugManager.EventBuilder builder = MadokuDebugManager.event(metricId, "attributes", "health", entry)
-			.side(MadokuDebugManager.Side.SERVER)
-			.tick(MadokuTimeManager.getGameplayTicks())
-			.subject("server");
-		if (fields != null) {
-			for (Map.Entry<String, String> fieldEntry : fields.entrySet()) {
-				if (fieldEntry != null) {
-					builder.field(fieldEntry.getKey(), fieldEntry.getValue());
-				}
-			}
-		}
-		builder.log();
-	}
 
 	private static String getString(JsonObject object, String key, String fallback) {
 		if (object == null || key == null || key.isBlank()) {
@@ -1130,9 +909,6 @@ public final class MadokuHealthManager {
 		}
 	}
 
-	private static String formatFloat(float value) {
-		return String.format("%.3f", value);
-	}
 
 	private static float quantizeHealth(float value) {
 		if (value <= 0.0f) {
