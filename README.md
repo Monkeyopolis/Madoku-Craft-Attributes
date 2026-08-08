@@ -1,8 +1,8 @@
-## Overview
+## Overview:
 
 Madoku Craft: Attributes is a configurable attribute system.
 You can modify attributes to customize the game experience to your needs.
-You can customize most of these features in the CONFIG files.
+You can customize most of these features in the config files.
 
 ## Dependencies:
 
@@ -13,8 +13,8 @@ You can customize most of these features in the CONFIG files.
 
 Health:
 
-- Minecraft's Regeneration was removed entirely.
-- Health automatically regenerates by draining Hunger.
+- Minecraft's health regeneration was removed entirely.
+- Health automatically regenerates by draining hunger.
 
 Hunger: 
 
@@ -26,7 +26,7 @@ Armor:
 
 - Armor now reduces damage by a flat amount by default.
 - Armor Toughness now reduces damage by a percent by default.
-- Fall damage is now reduced by Armor and Armor Toughness.
+- Fall damage is now reduced by armor and armor Toughness.
 
 Oxygen:
 
@@ -35,11 +35,11 @@ Oxygen:
 Luck: 
 
 - Luck now determines when a player deals critical damage.
-- Luck increases loot that MOBs drop.
+- Luck increases loot that mobs drop.
 - Luck can now trigger extra block drops when breaking blocks.
 
 Status Effects:
 
-- Poison was adjusted to drop a player's current Health to 25% by default.
-- Water Breathing, Dolphin's Grace, Conduit Power, and Breath of Nautilus now only extend Oxygen values.
-- Luck was adjusted to increase the player's Luck stat.
+- Poison was adjusted to drop a player's current health to 25% by default.
+- Water Breathing, Dolphin's Grace, Conduit Power, and Breath of Nautilus now only extend oxygen values.
+- Luck was adjusted to increase the player's luck stat.
