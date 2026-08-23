@@ -15,8 +15,8 @@ public final class HealthConfigManager {
 
 	private static final String HEALTH_CONFIG_FILE_NAME = "madoku-health";
 	private static final double DEFAULT_MAXIMUM_HEALTH = 20.0d;
-	private static final float DEFAULT_HUNGER_DRAIN_PERCENTAGE = 0.75f;
-	private static final float DEFAULT_HUNGER_PENALTY_PERCENTAGE = 0.25f;
+	private static final float DEFAULT_HUNGER_DRAIN_PERCENTAGE = 0.70f;
+	private static final float DEFAULT_HUNGER_PENALTY_PERCENTAGE = 0.20f;
 	private static final double DEFAULT_HEALTH_PENALTY_PERCENTAGE = 0.50d;
 	private static final float DEFAULT_RESPAWN_HEALTH_PERCENTAGE = 0.50f;
 	private static final double DEFAULT_EFFECT_VALUE = 0.05d;

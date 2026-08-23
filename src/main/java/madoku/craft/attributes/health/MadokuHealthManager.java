@@ -43,6 +43,7 @@ public final class MadokuHealthManager {
 	private static final long HEALTH_PLAYER_TICK_MIN_INTERVAL = 1L;
 	private static final long HEALTH_PLAYER_TICK_MAX_INTERVAL = 5L;
 	private static final int ACTION_INTERVAL_TICKS = 10;
+	private static final long LOW_HUNGER_ACTION_INTERVAL_TICKS = 3L * 60L * 20L;
 	private static final long POISON_TICK_INTERVAL = 10L;
 	private static final long WITHER_TICK_INTERVAL = 20L;
 	private static final long REGEN_TICK_INTERVAL = 20L;
@@ -51,8 +52,8 @@ public final class MadokuHealthManager {
 	private static final Identifier HEALTH_BOOST_MAX_HEALTH_MODIFIER_ID =
 		Identifier.fromNamespaceAndPath(MadokuCraftAttributes.MOD_ID, "madoku_health_health_boost_max_health");
 	private static final float POISON_MIN_HEALTH = 1.0f;
-	private static final float LOW_HUNGER_STEP_RATIO = 0.05f;
-	private static final double MAX_HEALTH_REDUCTION_PER_STEP = 0.10d;
+	private static final float LOW_HUNGER_STEP_RATIO = 0.01f;
+	private static final double MAX_HEALTH_REDUCTION_PER_STEP = 0.05d;
 
 	private static final Map<UUID, PlayerState> PLAYER_STATES = new HashMap<>();
 	private static volatile HealthConfigManager.Settings settings = HealthConfigManager.Settings.defaults();
@@ -283,10 +284,27 @@ public final class MadokuHealthManager {
 			return;
 		}
 
-		state.actionProgressTicks = accumulateProgressTicks(state.actionProgressTicks, elapsedTicks);
-		while (state.actionProgressTicks >= ACTION_INTERVAL_TICKS) {
-			state.actionProgressTicks -= ACTION_INTERVAL_TICKS;
-			convertHungerToHealth(player);
+		if (hungerRatio(player) >= settings.health.hungerDrainPercentage) {
+			state.lowHungerActionProgressTicks = 0L;
+			state.actionProgressTicks = accumulateProgressTicks(state.actionProgressTicks, elapsedTicks);
+			while (state.actionProgressTicks >= ACTION_INTERVAL_TICKS) {
+				state.actionProgressTicks -= ACTION_INTERVAL_TICKS;
+				convertHungerToHealth(player, true);
+			}
+			return;
+		}
+
+		float hungerRatio = hungerRatio(player);
+		if (hungerRatio < settings.health.healthPenalty.hungerPenaltyPercentage) {
+			state.lowHungerActionProgressTicks = 0L;
+			return;
+		}
+
+		state.actionProgressTicks = 0L;
+		state.lowHungerActionProgressTicks = accumulateProgressTicks(state.lowHungerActionProgressTicks, elapsedTicks);
+		while (state.lowHungerActionProgressTicks >= LOW_HUNGER_ACTION_INTERVAL_TICKS) {
+			state.lowHungerActionProgressTicks -= LOW_HUNGER_ACTION_INTERVAL_TICKS;
+			convertHungerToHealth(player, false);
 		}
 	}
 
@@ -343,12 +361,16 @@ public final class MadokuHealthManager {
 		player.setHealth(target);
 	}
 
-	private static void convertHungerToHealth(ServerPlayer player) {
+	private static void convertHungerToHealth(ServerPlayer player, boolean requireHighHunger) {
 		float missingHealth = player.getMaxHealth() - player.getHealth();
 		float hungerRatio = hungerRatio(player);
 		boolean hasRecoveryNeed = missingHealth > EPSILON;
+		boolean eligibleHunger = requireHighHunger
+			? hungerRatio >= settings.health.hungerDrainPercentage
+			: hungerRatio >= settings.health.healthPenalty.hungerPenaltyPercentage
+				&& hungerRatio < settings.health.hungerDrainPercentage;
 
-		if (hungerRatio <= settings.health.hungerDrainPercentage || !hasRecoveryNeed) {
+		if (!eligibleHunger || !hasRecoveryNeed) {
 			return;
 		}
 
@@ -490,19 +512,18 @@ public final class MadokuHealthManager {
 
 	private static double calculateMaxHealthMultiplier(float hungerRatio) {
 		HealthConfigManager.HealthPenaltySettings penalty = settings.health.healthPenalty;
-		if (!penalty.enabled || hungerRatio >= settings.health.healthPenalty.hungerPenaltyPercentage) {
+		if (!penalty.enabled || hungerRatio > penalty.hungerPenaltyPercentage) {
 			return 1.0d;
 		}
 
-		double belowThreshold = settings.health.healthPenalty.hungerPenaltyPercentage - hungerRatio;
-		int steps = (int) Math.ceil((belowThreshold - EPSILON) / LOW_HUNGER_STEP_RATIO);
+		double threshold = penalty.hungerPenaltyPercentage;
+		double belowThreshold = Math.max(0.0d, threshold - hungerRatio);
+		double maximumReduction = Math.max(0.0d, 1.0d - penalty.penaltyPercentage);
+		int steps = (int) Math.ceil((belowThreshold - (double) EPSILON) / LOW_HUNGER_STEP_RATIO);
 		steps = Math.max(0, steps);
-		double reduction = steps * MAX_HEALTH_REDUCTION_PER_STEP;
+		double reduction = Math.min(maximumReduction, steps * MAX_HEALTH_REDUCTION_PER_STEP);
 		double multiplier = 1.0d - reduction;
-		if (multiplier < penalty.penaltyPercentage) {
-			return penalty.penaltyPercentage;
-		}
-		return Math.min(1.0d, multiplier);
+		return Math.max(penalty.penaltyPercentage, Math.min(1.0d, multiplier));
 	}
 
 	private static float hungerRatio(ServerPlayer player) {
@@ -533,6 +554,7 @@ public final class MadokuHealthManager {
 		state.savedHealth = quantizeHealth(Math.max(0.0f, newPlayer.getHealth()));
 		state.lastProcessedGameplayTick = MadokuTimeManager.getGameplayTicks();
 		state.actionProgressTicks = 0L;
+		state.lowHungerActionProgressTicks = 0L;
 		state.poisonProgressTicks = 0L;
 		state.witherProgressTicks = 0L;
 		state.regenerationProgressTicks = 0L;
@@ -661,6 +683,7 @@ public final class MadokuHealthManager {
 				.put("uuid", entry.getKey().toString())
 				.put("current-health", state.savedHealth)
 				.put("action-progress-ticks", Math.max(0L, state.actionProgressTicks))
+				.put("low-hunger-action-progress-ticks", Math.max(0L, state.lowHungerActionProgressTicks))
 				.put("poison-progress-ticks", Math.max(0L, state.poisonProgressTicks))
 				.put("wither-progress-ticks", Math.max(0L, state.witherProgressTicks))
 				.put("regeneration-progress-ticks", Math.max(0L, state.regenerationProgressTicks)));
@@ -692,6 +715,7 @@ public final class MadokuHealthManager {
 			double savedHealth = getDouble(playerData, "current-health", Double.NaN);
 			state.savedHealth = Double.isNaN(savedHealth) ? -1.0f : Math.max(0.0f, (float) savedHealth);
 			state.actionProgressTicks = Math.max(0L, getLong(playerData, "action-progress-ticks", 0L));
+			state.lowHungerActionProgressTicks = Math.max(0L, getLong(playerData, "low-hunger-action-progress-ticks", 0L));
 			state.poisonProgressTicks = Math.max(0L, getLong(playerData, "poison-progress-ticks", 0L));
 			state.witherProgressTicks = Math.max(0L, getLong(playerData, "wither-progress-ticks", 0L));
 			state.regenerationProgressTicks = Math.max(0L, getLong(playerData, "regeneration-progress-ticks", 0L));
@@ -823,6 +847,7 @@ public final class MadokuHealthManager {
 		private float savedHealth = -1.0f;
 		private long lastProcessedGameplayTick = Long.MIN_VALUE;
 		private long actionProgressTicks;
+		private long lowHungerActionProgressTicks;
 		private long poisonProgressTicks;
 		private long witherProgressTicks;
 		private long regenerationProgressTicks;

@@ -9,10 +9,43 @@ import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.food.FoodData;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(FoodData.class)
 public abstract class FoodDataStarvationDamageMixin {
+	@Inject(method = "tick", at = @At("TAIL"))
+	private void madokuCraft$finishStarvationAtHealthFloor(ServerPlayer player, CallbackInfo ci) {
+		FoodData foodData = (FoodData) (Object) this;
+		float starvationHealthFloor = switch (player.level().getDifficulty()) {
+			case EASY -> 10.0f;
+			case PEACEFUL -> Float.MAX_VALUE;
+			default -> 1.0f;
+		};
+		if (!MadokuHungerManager.isEnabled()
+			|| foodData.getFoodLevel() > 0
+			|| !MadokuHungerManager.shouldApplyStarvationDamage(player)
+			|| player.getHealth() > starvationHealthFloor) {
+			return;
+		}
+
+		player.hurtServer(player.level(), player.damageSources().starve(), 1.0f);
+	}
+
+	@Redirect(
+		method = "tick",
+		at = @At(
+			value = "INVOKE",
+			target = "Lnet/minecraft/world/food/FoodData;addExhaustion(F)V"
+		)
+	)
+	private void madokuCraft$disableVanillaTickExhaustion(FoodData foodData, float amount) {
+		if (!MadokuHungerManager.isEnabled()) {
+			foodData.addExhaustion(amount);
+		}
+	}
+
 	@Redirect(
 		method = "tick",
 		at = @At(
@@ -26,7 +59,9 @@ public abstract class FoodDataStarvationDamageMixin {
 		DamageSource source,
 		float amount
 	) {
-		if (MadokuHungerManager.isEnabled() && source.is(DamageTypes.STARVE)) {
+		if (MadokuHungerManager.isEnabled()
+			&& source.is(DamageTypes.STARVE)
+			&& !MadokuHungerManager.shouldApplyStarvationDamage(player)) {
 			return false;
 		}
 		return player.hurtServer(level, source, amount);
