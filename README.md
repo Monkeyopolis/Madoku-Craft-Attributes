@@ -20,12 +20,12 @@ Hunger:
 
 - Saturation was removed entirely.
 - Hunger now depletes from reaching certain goals, such as walking, breaking blocks, etc.
-- Max Hunger was increased to 30 by default.
+- Max hunger was increased to 30 by default.
 
 Armor: 
 
 - Armor now reduces damage by a flat amount by default.
-- Armor Toughness now reduces damage by a percent by default.
+- Armor toughness now reduces damage by a percent by default.
 - Fall damage is now reduced by armor and armor Toughness.
 
 Oxygen:
@@ -41,5 +41,4 @@ Luck:
 Status Effects:
 
 - Poison was adjusted to drop a player's current health to 25% by default.
-- Water Breathing, Dolphin's Grace, Conduit Power, and Breath of Nautilus now only extend oxygen values.
 - Luck was adjusted to increase the player's luck stat.

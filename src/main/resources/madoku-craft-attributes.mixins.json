@@ -3,9 +3,9 @@
 	"package": "madoku.craft.attributes.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
-		"BlockItemPlacedBlocksMixin",
-		"BlockLuckContextMixin",
 		"EffectCommandsSaturationDurationMixin",
+		"EntityAirSupplyMaximumMixin",
+		"FoodDataSaturationDisableMixin",
 		"FoodDataStarvationDamageMixin",
 		"ItemFoodGateMixin",
 		"LivingEntityArmorDamageMixin",
@@ -16,11 +16,11 @@
 		"MobEffectTickOverrideMixin",
 		"PlayerEatGateMixin",
 		"PlayerLuckCriticalHitMixin",
-		"PlayerSprintGateMixin",
-		"SaturationMobEffectMixin",
-		"ServerPlayerDrowningDamageMixin"
+		"PlayerFoodExhaustionMixin",
+		"SaturationMobEffectMixin"
 	],
 	"client": [
+		"client.HudFoodLevelMixin",
 		"client.ItemFoodClientPredictionMixin"
 	],
 	"injectors": {

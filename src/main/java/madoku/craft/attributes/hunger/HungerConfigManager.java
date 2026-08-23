@@ -14,7 +14,6 @@ public final class HungerConfigManager {
 	private static final Logger LOGGER = LoggerFactory.getLogger(HungerConfigManager.class);
 
 	private static final int MAX_CONFIG_HUNGER_POINTS = 8192;
-	private static final double DEFAULT_STARVATION_PENALTY_PERCENTAGE = 0.25d;
 	private static final double DEFAULT_RESPAWN_HUNGER_PERCENTAGE = 0.50d;
 	private static final double DEFAULT_EFFECT_VALUE = 0.05d;
 	private static final long DEFAULT_BLOCK_GOAL_VALUE = 128L;
@@ -100,18 +99,15 @@ public final class HungerConfigManager {
 	static final class HungerSettings {
 		final boolean enabled;
 		final int maxHunger;
-		final StarvationPenaltySettings starvationPenalty;
 		final double respawnHungerPercentage;
 
 		private HungerSettings(
 			boolean enabled,
 			int maxHunger,
-			StarvationPenaltySettings starvationPenalty,
 			double respawnHungerPercentage
 		) {
 			this.enabled = enabled;
 			this.maxHunger = maxHunger;
-			this.starvationPenalty = starvationPenalty;
 			this.respawnHungerPercentage = respawnHungerPercentage;
 		}
 
@@ -119,7 +115,6 @@ public final class HungerConfigManager {
 			return new HungerSettings(
 				true,
 				30,
-				StarvationPenaltySettings.defaults(),
 				DEFAULT_RESPAWN_HUNGER_PERCENTAGE
 			);
 		}
@@ -132,22 +127,17 @@ public final class HungerConfigManager {
 				1L,
 				MAX_CONFIG_HUNGER_POINTS
 			);
-			StarvationPenaltySettings starvationPenalty = StarvationPenaltySettings.fromJson(
-				readObject(source, "starvation-penalty"),
-				base.starvationPenalty
-			);
 			double respawnHungerPercentage = clampDouble(
 				getDouble(source, "respawn-hunger-percentage", base.respawnHungerPercentage),
 				0.0d,
 				1.0d
 			);
-			return new HungerSettings(enabled, maxHunger, starvationPenalty, respawnHungerPercentage);
+			return new HungerSettings(enabled, maxHunger, respawnHungerPercentage);
 		}
 
 		JsonObject toConfigJson(JSONFormatManager.ObjectBuilder builder) {
 			builder.put("enabled", enabled)
 				.put("max-hunger", maxHunger)
-				.object("starvation-penalty", starvationPenalty -> this.starvationPenalty.toConfigJson(starvationPenalty))
 				.put("respawn-hunger-percentage", respawnHungerPercentage);
 			return builder.build();
 		}
@@ -156,40 +146,8 @@ public final class HungerConfigManager {
 			return new HungerSettings(
 				systemEnabled && enabled,
 				maxHunger,
-				starvationPenalty,
 				respawnHungerPercentage
 			);
-		}
-	}
-
-	static final class StarvationPenaltySettings {
-		final boolean enabled;
-		final double starvationPenaltyPercentage;
-
-		private StarvationPenaltySettings(boolean enabled, double starvationPenaltyPercentage) {
-			this.enabled = enabled;
-			this.starvationPenaltyPercentage = starvationPenaltyPercentage;
-		}
-
-		static StarvationPenaltySettings defaults() {
-			return new StarvationPenaltySettings(true, DEFAULT_STARVATION_PENALTY_PERCENTAGE);
-		}
-
-		static StarvationPenaltySettings fromJson(JsonObject source, StarvationPenaltySettings defaults) {
-			StarvationPenaltySettings base = defaults == null ? defaults() : defaults;
-			boolean enabled = getBoolean(source, "enabled", base.enabled);
-			double starvationPenaltyPercentage = clampDouble(
-				getDouble(source, "starvation-penalty-percentage", base.starvationPenaltyPercentage),
-				0.0d,
-				1.0d
-			);
-			return new StarvationPenaltySettings(enabled, starvationPenaltyPercentage);
-		}
-
-		JsonObject toConfigJson(JSONFormatManager.ObjectBuilder builder) {
-			builder.put("enabled", enabled)
-				.put("starvation-penalty-percentage", starvationPenaltyPercentage);
-			return builder.build();
 		}
 	}
 

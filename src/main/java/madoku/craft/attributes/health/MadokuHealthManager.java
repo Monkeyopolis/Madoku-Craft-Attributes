@@ -46,7 +46,6 @@ public final class MadokuHealthManager {
 	private static final long POISON_TICK_INTERVAL = 10L;
 	private static final long WITHER_TICK_INTERVAL = 20L;
 	private static final long REGEN_TICK_INTERVAL = 20L;
-	private static final long PENDING_IDLE_TIMEOUT_TICKS = 1500L;
 	private static final Identifier LOW_HUNGER_MAX_HEALTH_MODIFIER_ID =
 		Identifier.fromNamespaceAndPath(MadokuCraftAttributes.MOD_ID, "madoku_health_low_hunger_max_health");
 	private static final Identifier HEALTH_BOOST_MAX_HEALTH_MODIFIER_ID =
@@ -54,8 +53,6 @@ public final class MadokuHealthManager {
 	private static final float POISON_MIN_HEALTH = 1.0f;
 	private static final float LOW_HUNGER_STEP_RATIO = 0.05f;
 	private static final double MAX_HEALTH_REDUCTION_PER_STEP = 0.10d;
-	private static final double PENDING_HEALTH_PER_HUNGER = 1.0d;
-	private static final double PENDING_HEALTH_APPLY_AMOUNT = 1.0d;
 
 	private static final Map<UUID, PlayerState> PLAYER_STATES = new HashMap<>();
 	private static volatile HealthConfigManager.Settings settings = HealthConfigManager.Settings.defaults();
@@ -221,13 +218,10 @@ public final class MadokuHealthManager {
 		PlayerState state = PLAYER_STATES.computeIfAbsent(playerId, ignored -> new PlayerState());
 		if (!state.onlineThisSession) {
 			state.onlineThisSession = true;
-			state.lastPendingActivityTick = gameplayTick;
 		}
 		long elapsedTicks = consumeElapsedTicks(state, gameplayTick);
 		if (!player.isAlive() || player.isDeadOrDying()) {
 			// Never run the heal/drain loop while the player is dead; this can interfere with respawn.
-			state.pendingHealth = 0.0f;
-			state.highHungerDrainActive = false;
 			return;
 		}
 
@@ -235,8 +229,7 @@ public final class MadokuHealthManager {
 		applyHealthBoostScaling(player, state, gameplayTick);
 		applyAbsorptionScaling(player, state, gameplayTick);
 		processStatusEffects(player, state, gameplayTick, elapsedTicks);
-		processPendingHealthCycles(player, state, gameplayTick, elapsedTicks);
-		clearIdlePendingHealth(state, playerId, gameplayTick);
+		processHungerHealthCycles(player, state, elapsedTicks);
 		state.savedHealth = player.getHealth();
 	}
 
@@ -277,7 +270,7 @@ public final class MadokuHealthManager {
 				state.regenerationProgressTicks = accumulateProgressTicks(state.regenerationProgressTicks, elapsedTicks);
 				while (state.regenerationProgressTicks >= REGEN_TICK_INTERVAL) {
 					state.regenerationProgressTicks -= REGEN_TICK_INTERVAL;
-					applyRegenerationTick(player, state, gameplayTick, regenerationLevel);
+					applyRegenerationTick(player, regenerationLevel);
 				}
 			} else {
 				state.regenerationProgressTicks = 0L;
@@ -285,7 +278,7 @@ public final class MadokuHealthManager {
 		}
 	}
 
-	private static void processPendingHealthCycles(ServerPlayer player, PlayerState state, long gameplayTick, long elapsedTicks) {
+	private static void processHungerHealthCycles(ServerPlayer player, PlayerState state, long elapsedTicks) {
 		if (player == null || state == null) {
 			return;
 		}
@@ -293,8 +286,7 @@ public final class MadokuHealthManager {
 		state.actionProgressTicks = accumulateProgressTicks(state.actionProgressTicks, elapsedTicks);
 		while (state.actionProgressTicks >= ACTION_INTERVAL_TICKS) {
 			state.actionProgressTicks -= ACTION_INTERVAL_TICKS;
-			collectPendingHealthFromHunger(player, state, gameplayTick);
-			applyPendingHealth(player, state, gameplayTick);
+			convertHungerToHealth(player);
 		}
 	}
 
@@ -331,7 +323,7 @@ public final class MadokuHealthManager {
 		player.hurtServer(player.level(), player.damageSources().wither(), damage);
 	}
 
-	private static void applyRegenerationTick(ServerPlayer player, PlayerState state, long gameplayTick, int regenerationLevel) {
+	private static void applyRegenerationTick(ServerPlayer player, int regenerationLevel) {
 		float maxHealth = player.getMaxHealth();
 		float current = player.getHealth();
 		if (current >= maxHealth - EPSILON) {
@@ -349,85 +341,24 @@ public final class MadokuHealthManager {
 		}
 
 		player.setHealth(target);
-		state.lastPendingActivityTick = gameplayTick;
-
 	}
 
-	private static void collectPendingHealthFromHunger(ServerPlayer player, PlayerState state, long gameplayTick) {
+	private static void convertHungerToHealth(ServerPlayer player) {
 		float missingHealth = player.getMaxHealth() - player.getHealth();
 		float hungerRatio = hungerRatio(player);
 		boolean hasRecoveryNeed = missingHealth > EPSILON;
 
-		if (hungerRatio > settings.health.hungerDrainPercentage && hasRecoveryNeed) {
-			state.highHungerDrainActive = true;
-		}
 		if (hungerRatio <= settings.health.hungerDrainPercentage || !hasRecoveryNeed) {
-			state.highHungerDrainActive = false;
-		}
-		if (!state.highHungerDrainActive) {
 			return;
 		}
 
 		int drained = drainFood(player, 1);
 		if (drained <= 0) {
-			state.highHungerDrainActive = false;
 			return;
 		}
 
-		state.pendingHealth += drained * (float) PENDING_HEALTH_PER_HUNGER;
-		state.lastPendingActivityTick = gameplayTick;
-		if (hungerRatio(player) <= settings.health.hungerDrainPercentage) {
-			state.highHungerDrainActive = false;
-		}
-
-	}
-
-	private static void applyPendingHealth(ServerPlayer player, PlayerState state, long gameplayTick) {
-		if (state.pendingHealth <= EPSILON) {
-			return;
-		}
-
-		float missingHealth = player.getMaxHealth() - player.getHealth();
-		if (missingHealth <= EPSILON) {
-			return;
-		}
-
-		float healing = Math.min((float) PENDING_HEALTH_APPLY_AMOUNT, Math.min(state.pendingHealth, missingHealth));
-		if (healing <= EPSILON) {
-			return;
-		}
-
-		float targetHealth = quantizeHealth(player.getHealth() + healing);
-		targetHealth = Math.min(player.getMaxHealth(), targetHealth);
-		targetHealth = Math.max(player.getHealth(), targetHealth);
-		float appliedHealing = targetHealth - player.getHealth();
-		if (appliedHealing <= EPSILON) {
-			return;
-		}
-
+		float targetHealth = Math.min(player.getMaxHealth(), player.getHealth() + drained);
 		player.setHealth(targetHealth);
-		state.pendingHealth -= appliedHealing;
-		if (state.pendingHealth < EPSILON) {
-			state.pendingHealth = 0.0f;
-		}
-		state.lastPendingActivityTick = gameplayTick;
-
-	}
-
-	private static void clearIdlePendingHealth(PlayerState state, UUID playerId, long gameplayTick) {
-		if (state.pendingHealth <= EPSILON) {
-			return;
-		}
-
-		long idleTicks = gameplayTick - state.lastPendingActivityTick;
-		if (idleTicks < PENDING_IDLE_TIMEOUT_TICKS) {
-			return;
-		}
-
-		state.pendingHealth = 0.0f;
-		state.highHungerDrainActive = false;
-		state.lastPendingActivityTick = gameplayTick;
-
 	}
 
 	private static void applyLowHungerMaxHealthScaling(ServerPlayer player, PlayerState state, long gameplayTick) {
@@ -599,10 +530,7 @@ public final class MadokuHealthManager {
 		newPlayer.setHealth(targetHealth);
 
 		PlayerState state = PLAYER_STATES.computeIfAbsent(newPlayer.getUUID(), ignored -> new PlayerState());
-		state.pendingHealth = 0.0f;
-		state.highHungerDrainActive = newPlayer.getHealth() + EPSILON < newPlayer.getMaxHealth();
 		state.savedHealth = quantizeHealth(Math.max(0.0f, newPlayer.getHealth()));
-		state.lastPendingActivityTick = MadokuTimeManager.getGameplayTicks();
 		state.lastProcessedGameplayTick = MadokuTimeManager.getGameplayTicks();
 		state.actionProgressTicks = 0L;
 		state.poisonProgressTicks = 0L;
@@ -627,9 +555,7 @@ public final class MadokuHealthManager {
 
 		PlayerState state = PLAYER_STATES.computeIfAbsent(player.getUUID(), ignored -> new PlayerState());
 		state.onlineThisSession = true;
-		state.lastPendingActivityTick = MadokuTimeManager.getGameplayTicks();
 		state.lastProcessedGameplayTick = MadokuTimeManager.getGameplayTicks();
-		state.highHungerDrainActive = player.getHealth() + EPSILON < player.getMaxHealth();
 
 	}
 
@@ -640,9 +566,7 @@ public final class MadokuHealthManager {
 
 		PlayerState state = PLAYER_STATES.computeIfAbsent(player.getUUID(), ignored -> new PlayerState());
 		state.onlineThisSession = true;
-		state.lastPendingActivityTick = MadokuTimeManager.getGameplayTicks();
 		state.lastProcessedGameplayTick = MadokuTimeManager.getGameplayTicks();
-		state.highHungerDrainActive = player.getHealth() + EPSILON < player.getMaxHealth();
 		applyImmediateEffectOverrides(player, state, MadokuTimeManager.getGameplayTicks());
 	}
 
@@ -654,7 +578,6 @@ public final class MadokuHealthManager {
 		PlayerState state = PLAYER_STATES.computeIfAbsent(player.getUUID(), ignored -> new PlayerState());
 		state.onlineThisSession = true;
 		long gameplayTick = MadokuTimeManager.getGameplayTicks();
-		state.lastPendingActivityTick = gameplayTick;
 		state.lastProcessedGameplayTick = gameplayTick;
 		applyImmediateEffectOverrides(player, state, gameplayTick);
 	}
@@ -736,10 +659,7 @@ public final class MadokuHealthManager {
 
 			players.object(player -> player
 				.put("uuid", entry.getKey().toString())
-				.put("pending-health", state.pendingHealth)
 				.put("current-health", state.savedHealth)
-				.put("high-hunger-drain-active", state.highHungerDrainActive)
-				.put("last-pending-activity-tick", Math.max(0L, state.lastPendingActivityTick))
 				.put("action-progress-ticks", Math.max(0L, state.actionProgressTicks))
 				.put("poison-progress-ticks", Math.max(0L, state.poisonProgressTicks))
 				.put("wither-progress-ticks", Math.max(0L, state.witherProgressTicks))
@@ -769,11 +689,8 @@ public final class MadokuHealthManager {
 			}
 
 			PlayerState state = new PlayerState();
-			state.pendingHealth = Math.max(0.0f, (float) getDouble(playerData, "pending-health", 0.0d));
 			double savedHealth = getDouble(playerData, "current-health", Double.NaN);
 			state.savedHealth = Double.isNaN(savedHealth) ? -1.0f : Math.max(0.0f, (float) savedHealth);
-			state.highHungerDrainActive = getBoolean(playerData, "high-hunger-drain-active", false);
-			state.lastPendingActivityTick = Math.max(0L, getLong(playerData, "last-pending-activity-tick", 0L));
 			state.actionProgressTicks = Math.max(0L, getLong(playerData, "action-progress-ticks", 0L));
 			state.poisonProgressTicks = Math.max(0L, getLong(playerData, "poison-progress-ticks", 0L));
 			state.witherProgressTicks = Math.max(0L, getLong(playerData, "wither-progress-ticks", 0L));
@@ -872,21 +789,6 @@ public final class MadokuHealthManager {
 		}
 	}
 
-	private static boolean getBoolean(JsonObject object, String key, boolean fallback) {
-		if (object == null || key == null || key.isBlank()) {
-			return fallback;
-		}
-		JsonElement element = object.get(key);
-		if (element == null || !element.isJsonPrimitive() || !element.getAsJsonPrimitive().isBoolean()) {
-			return fallback;
-		}
-		try {
-			return element.getAsBoolean();
-		} catch (RuntimeException exception) {
-			return fallback;
-		}
-	}
-
 	private static JsonArray getArray(JsonObject object, String key) {
 		if (object == null || key == null || key.isBlank()) {
 			return null;
@@ -918,10 +820,7 @@ public final class MadokuHealthManager {
 	}
 
 	private static final class PlayerState {
-		private float pendingHealth;
-		private boolean highHungerDrainActive;
 		private float savedHealth = -1.0f;
-		private long lastPendingActivityTick;
 		private long lastProcessedGameplayTick = Long.MIN_VALUE;
 		private long actionProgressTicks;
 		private long poisonProgressTicks;
@@ -933,7 +832,7 @@ public final class MadokuHealthManager {
 		private boolean onlineThisSession;
 
 		private boolean hasPersistableState() {
-			return pendingHealth > EPSILON || highHungerDrainActive || savedHealth >= 0.0f;
+			return savedHealth >= 0.0f;
 		}
 	}
 

@@ -48,7 +48,7 @@ public abstract class ItemFoodGateMixin {
 	}
 
 	@Inject(method = "finishUsingItem", at = @At("RETURN"))
-	private void madokuCraft$collectPendingFromFood(ItemStack stack, Level level, LivingEntity entity, CallbackInfoReturnable<ItemStack> cir) {
+	private void madokuCraft$applyFoodNutritionToVanillaData(ItemStack stack, Level level, LivingEntity entity, CallbackInfoReturnable<ItemStack> cir) {
 		if (level == null || level.isClientSide() || !(entity instanceof ServerPlayer serverPlayer)) {
 			return;
 		}

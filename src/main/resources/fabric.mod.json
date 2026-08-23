@@ -16,6 +16,9 @@
 	"entrypoints": {
 		"main": [
 			"madoku.craft.attributes.MadokuCraftAttributes"
+		],
+		"client": [
+			"madoku.craft.attributes.MadokuCraftAttributesClient"
 		]
 	},
 	"mixins": [
@@ -26,6 +29,6 @@
 		"minecraft": "~${minecraft_version}",
 		"java": ">=25",
 		"fabric-api": "*",
-		"madoku-craft-api": ">=${madoku_craft_api_mod_version}"
+		"madoku-craft-api": "${madoku_craft_api_mod_version}"
 	}
 }
