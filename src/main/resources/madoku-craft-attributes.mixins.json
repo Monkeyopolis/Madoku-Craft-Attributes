@@ -1,29 +1,36 @@
 {
-	"required": true,
-	"package": "madoku.craft.attributes.mixin",
-	"compatibilityLevel": "JAVA_25",
-	"mixins": [
-		"EffectCommandsSaturationDurationMixin",
-		"EntityAirSupplyMaximumMixin",
-		"FoodDataSaturationDisableMixin",
-		"FoodDataStarvationDamageMixin",
-		"ItemFoodGateMixin",
-		"LivingEntityArmorDamageMixin",
-		"LivingEntityEffectAttributeOverrideMixin",
-		"LivingEntityEffectMixin",
-		"LivingEntityLuckLootMixin",
-		"LootTableLuckMixin",
-		"MobEffectTickOverrideMixin",
-		"PlayerEatGateMixin",
-		"PlayerLuckCriticalHitMixin",
-		"PlayerFoodExhaustionMixin",
-		"SaturationMobEffectMixin"
-	],
-	"client": [
-		"client.HudFoodLevelMixin",
-		"client.ItemFoodClientPredictionMixin"
-	],
-	"injectors": {
-		"defaultRequire": 1
-	}
+  "required": true,
+  "package": "madoku.craft.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "attributes.ChangeItemDamageSoulSpeedMixin",
+    "attributes.EffectCommandsSaturationDurationMixin",
+    "attributes.EnchantmentAttributeEffectMixin",
+    "attributes.EnchantmentHelperMendingMixin",
+    "attributes.EnchantmentMaximumLevelMixin",
+    "attributes.EntityAirSupplyMaximumMixin",
+    "attributes.FoodDataSaturationDisableMixin",
+    "attributes.FoodDataStarvationDamageMixin",
+    "attributes.ItemFoodGateMixin",
+    "attributes.MadokuArmorDamageMixin",
+    "attributes.LivingEntityEffectAttributeOverrideMixin",
+    "attributes.LivingEntityEffectMixin",
+    "attributes.LivingEntityKnockbackMixin",
+    "attributes.LootPoolSingletonContainerEntryMixin",
+    "attributes.LootTableLuckMixin",
+    "attributes.MobEffectTickOverrideMixin",
+    "attributes.PlayerEatGateMixin",
+    "attributes.PlayerExperienceCurveMixin",
+    "attributes.PlayerFoodExhaustionMixin",
+    "attributes.PlayerLuckCriticalHitMixin",
+    "attributes.ProjectileWeaponInfinityMixin",
+    "attributes.SaturationMobEffectMixin",
+    "attributes.ServerPlayerTeleportHungerMixin"
+  ],
+  "client": [
+    "attributes.HudFoodLevelMixin",
+    "attributes.ItemFoodClientGateMixin",
+    "attributes.PlayerEatClientGateMixin"
+  ],
+  "injectors": { "defaultRequire": 1 }
 }

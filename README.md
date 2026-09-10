@@ -1,44 +1,44 @@
 ## Overview:
 
 Madoku Craft: Attributes is a configurable attribute system.
-You can modify attributes to customize the game experience to your needs.
-You can customize most of these features in the config files.
+It modifies certain attribute mechanics.
+You can tune those mechanics to customize the game experience to your needs.
 
 ## Dependencies:
 
 - Fabric API
-- Madoku Craft API
+- Madoku Craft: Core
 
 ## Features:
 
-Health:
+**Health:**
 
 - Minecraft's health regeneration was removed entirely.
 - Health automatically regenerates by draining hunger.
 
-Hunger: 
+**Hunger:**
 
 - Saturation was removed entirely.
 - Hunger now depletes from reaching certain goals, such as walking, breaking blocks, etc.
 - Max hunger was increased to 30 by default.
 
-Armor: 
+**Armor:**
 
 - Armor now reduces damage by a flat amount by default.
 - Armor toughness now reduces damage by a percent by default.
 - Fall damage is now reduced by armor and armor Toughness.
 
-Oxygen:
+**Oxygen:**
 
 - Breathing time was increased to 30 seconds by default.
 
-Luck: 
+**Luck:**
 
 - Luck now determines when a player deals critical damage.
 - Luck increases loot that mobs drop.
 - Luck can now trigger extra block drops when breaking blocks.
 
-Status Effects:
+**Status Effects:**
 
 - Poison was adjusted to drop a player's current health to 25% by default.
 - Luck was adjusted to increase the player's luck stat.
