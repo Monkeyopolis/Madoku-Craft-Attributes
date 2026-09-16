@@ -10,6 +10,7 @@ import madoku.craft.java.core.sync.SyncPlayerAPIManager;
 import madoku.craft.java.core.time.TimeAPIManager;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffect;
@@ -50,6 +51,13 @@ public final class MadokuHungerManager {
 		loadStaticConfig();
 		ServerPlayerEvents.JOIN.register(MadokuHungerManager::handlePlayerJoin);
 		ServerPlayerEvents.AFTER_RESPAWN.register(MadokuHungerManager::handlePlayerRespawn);
+		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+			if (handler == null || handler.player == null) {
+				return;
+			}
+			capturePlayerHunger(handler.player);
+			savePersistedData(server);
+		});
 		PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> handleBlockBreak(player));
 	}
 
@@ -89,6 +97,7 @@ public final class MadokuHungerManager {
 		if (server == null) {
 			return;
 		}
+		syncTrackedPlayerHunger(server);
 		PlayerDataAPIManager.setSystemData(DATA_FILE_NAME, toPersistedData());
 	}
 
@@ -197,8 +206,12 @@ public final class MadokuHungerManager {
 		}
 
 		int maxHungerPoints = resolveMaximumHungerPoints(player);
-		normalizeFoodLevel(player, maxHungerPoints);
 		PlayerState state = PLAYER_STATES.computeIfAbsent(player.getUUID(), ignored -> new PlayerState());
+		if (state.restoreSavedHungerAfterMaximumChange && state.savedHunger >= 0) {
+			player.getFoodData().setFoodLevel(Math.min(maxHungerPoints, state.savedHunger));
+			state.restoreSavedHungerAfterMaximumChange = false;
+		}
+		normalizeFoodLevel(player, maxHungerPoints);
 		state.lastSyncedCurrentHunger = Integer.MIN_VALUE;
 		state.lastSyncedMaxHunger = Integer.MIN_VALUE;
 		syncHudState(player, state, maxHungerPoints);
@@ -484,7 +497,10 @@ public final class MadokuHungerManager {
 		boolean firstJoin = !PLAYER_STATES.containsKey(player.getUUID());
 		PlayerState state = PLAYER_STATES.computeIfAbsent(player.getUUID(), ignored -> new PlayerState());
 		int maxHungerPoints = resolveMaximumHungerPoints(player);
-		if (firstJoin) {
+		if (state.savedHunger >= 0) {
+			player.getFoodData().setFoodLevel(Math.min(maxHungerPoints, state.savedHunger));
+			state.restoreSavedHungerAfterMaximumChange = true;
+		} else if (firstJoin) {
 			player.getFoodData().setFoodLevel(maxHungerPoints);
 		}
 		normalizeFoodLevel(player, maxHungerPoints);
@@ -503,6 +519,8 @@ public final class MadokuHungerManager {
 		PlayerState state = PLAYER_STATES.computeIfAbsent(newPlayer.getUUID(), ignored -> new PlayerState());
 		int maxHungerPoints = resolveMaximumHungerPoints(newPlayer);
 		newPlayer.getFoodData().setFoodLevel((int) Math.round(maxHungerPoints * settings.hunger.respawnHungerPercentage));
+		state.savedHunger = Math.max(0, newPlayer.getFoodData().getFoodLevel());
+		state.restoreSavedHungerAfterMaximumChange = false;
 		state.blockBreakProgress = 0L;
 		state.movementProgress = 0.0d;
 		state.timeProgressTicks = 0L;
@@ -658,6 +676,7 @@ public final class MadokuHungerManager {
 			PlayerState state = entry.getValue();
 			players.object(player -> player
 				.put("uuid", entry.getKey().toString())
+				.put("current-hunger", state.savedHunger)
 				.put("block-break-progress", state.blockBreakProgress)
 				.put("movement-progress", state.movementProgress)
 				.put("time-progress-ticks", state.timeProgressTicks)
@@ -702,6 +721,8 @@ public final class MadokuHungerManager {
 		if (playerId == null) return;
 
 		PlayerState state = new PlayerState();
+		long savedHunger = getLong(playerData, "current-hunger", -1L);
+		state.savedHunger = savedHunger < 0L ? -1 : (int) Math.min(Integer.MAX_VALUE, savedHunger);
 		state.blockBreakProgress = Math.max(0L, getLong(playerData, "block-break-progress", 0L));
 		state.movementProgress = Math.max(0.0d, getDouble(playerData, "movement-progress", 0.0d));
 		state.timeProgressTicks = Math.max(0L, getLong(playerData, "time-progress-ticks", 0L));
@@ -733,6 +754,26 @@ public final class MadokuHungerManager {
 			return Long.MAX_VALUE;
 		}
 		return safeCurrent + elapsedTicks;
+	}
+
+	private static void syncTrackedPlayerHunger(MinecraftServer server) {
+		if (server == null || !settings.hunger.enabled) {
+			return;
+		}
+
+		for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+			capturePlayerHunger(player);
+		}
+	}
+
+	private static void capturePlayerHunger(ServerPlayer player) {
+		if (player == null || !settings.hunger.enabled) {
+			return;
+		}
+
+		int maxHungerPoints = resolveMaximumHungerPoints(player);
+		PlayerState state = PLAYER_STATES.computeIfAbsent(player.getUUID(), ignored -> new PlayerState());
+		state.savedHunger = normalizeFoodLevel(player, maxHungerPoints);
 	}
 
 	private static void loadStaticConfig() {
@@ -813,6 +854,8 @@ public final class MadokuHungerManager {
 		private long zeroHungerProgressTicks;
 		private int lastSyncedCurrentHunger = Integer.MIN_VALUE;
 		private int lastSyncedMaxHunger = Integer.MIN_VALUE;
+		private int savedHunger = -1;
+		private boolean restoreSavedHungerAfterMaximumChange;
 		private double lastX = Double.NaN;
 		private double lastZ = Double.NaN;
 

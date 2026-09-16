@@ -65,6 +65,7 @@ public final class MadokuHealthManager {
 				return;
 			}
 			capturePlayerHealth(handler.player);
+			savePersistedData(server);
 		});
 	}
 
@@ -155,12 +156,17 @@ public final class MadokuHealthManager {
 			return;
 		}
 
+		if (state.restoreJoinHealthOnNextTick) {
+			restoreJoinHealth(player);
+		}
 		applyLowHungerMaxHealthScaling(player, state, gameplayTick);
 		applyHealthBoostScaling(player, state, gameplayTick);
 		applyAbsorptionScaling(player, state, gameplayTick);
 		processStatusEffects(player, state, gameplayTick, elapsedTicks);
 		processHungerHealthCycles(player, state, elapsedTicks);
-		state.savedHealth = player.getHealth();
+		if (!state.restoreJoinHealthOnNextTick) {
+			state.savedHealth = player.getHealth();
+		}
 	}
 
 	private static void processStatusEffects(ServerPlayer player, PlayerState state, long gameplayTick, long elapsedTicks) {
@@ -490,6 +496,7 @@ public final class MadokuHealthManager {
 		state.appliedMaxHealthMultiplier = 1.0d;
 		state.appliedHealthBoostAmount = 0.0d;
 		state.appliedAbsorptionAmount = 0.0f;
+		state.restoreJoinHealthOnNextTick = false;
 		state.onlineThisSession = true;
 	}
 
@@ -515,11 +522,26 @@ public final class MadokuHealthManager {
 			return;
 		}
 
-		applyPersistedPlayerData(PlayerDataAPIManager.getSystemDataForPlayer(player, DATA_FILE_NAME, "players", "uuid"));
+		JsonObject persistedData = PlayerDataAPIManager.getSystemDataForPlayer(player, DATA_FILE_NAME, "players", "uuid");
+		applyPersistedPlayerData(persistedData);
 		PlayerState state = PLAYER_STATES.computeIfAbsent(player.getUUID(), ignored -> new PlayerState());
 		state.onlineThisSession = true;
 		state.lastProcessedGameplayTick = TimeAPIManager.getGameplayTicks();
-		applyImmediateEffectOverrides(player, state, TimeAPIManager.getGameplayTicks());
+		state.restoreJoinHealthOnNextTick = true;
+
+		// Levels applies its max-health modifier from its own JOIN callback. Queue
+		// the restore so it runs after all JOIN callbacks, otherwise a saved value
+		// such as 22 can be clamped against vanilla's temporary max of 20.
+		MinecraftServer server = player.level().getServer();
+		if (server != null) {
+			server.execute(() -> {
+				PlayerState current = PLAYER_STATES.get(player.getUUID());
+				if (current != null && current.savedHealth > player.getMaxHealth() + EPSILON) {
+					return;
+				}
+				restoreJoinHealth(player);
+			});
+		}
 	}
 
 	public static void handlePlayerEffectsChanged(ServerPlayer player) {
@@ -560,7 +582,16 @@ public final class MadokuHealthManager {
 		}
 
 		PlayerState state = PLAYER_STATES.get(player.getUUID());
-		if (state == null || state.savedHealth < 0.0f) {
+		if (state == null) {
+			return;
+		}
+		if (state.savedHealth < 0.0f) {
+			state.restoreJoinHealthOnNextTick = false;
+			return;
+		}
+		if (state.savedHealth > player.getMaxHealth() + EPSILON) {
+			// A level-based max-health modifier may still be pending. Do not
+			// clamp the saved value to vanilla's temporary maximum of 20.
 			return;
 		}
 
@@ -568,6 +599,7 @@ public final class MadokuHealthManager {
 		if (Math.abs(targetHealth - player.getHealth()) > EPSILON) {
 			player.setHealth(targetHealth);
 		}
+		state.restoreJoinHealthOnNextTick = false;
 	}
 
 	private static void applyImmediateEffectOverrides(ServerPlayer player, PlayerState state, long gameplayTick) {
@@ -794,6 +826,7 @@ public final class MadokuHealthManager {
 		private double appliedHealthBoostAmount;
 		private float appliedAbsorptionAmount;
 		private boolean onlineThisSession;
+		private boolean restoreJoinHealthOnNextTick;
 
 		private boolean hasPersistableState() {
 			return savedHealth >= 0.0f;
