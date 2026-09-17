@@ -251,7 +251,7 @@ public final class MadokuLuckManager {
 			applyManagedCropDrops((RandomSource) null, stacks);
 			return;
 		}
-		ItemInstance toolInstance = lootContext.getOptionalParameter(LootContextParams.TOOL);
+		ItemInstance toolInstance = lootContext.getOptional(LootContextParams.TOOL);
 		ItemStack tool = toolInstance instanceof ItemStack itemStack ? itemStack : null;
 		applyManagedCropDrops(lootContext.getRandom(), stacks, tool);
 	}

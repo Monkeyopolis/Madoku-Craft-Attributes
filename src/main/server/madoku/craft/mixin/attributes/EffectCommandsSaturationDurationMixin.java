@@ -12,7 +12,7 @@ import madoku.craft.java.attributes.HungerAPIManager;
 @Mixin(EffectCommands.class)
 public abstract class EffectCommandsSaturationDurationMixin {
 	@Redirect(
-		method = "giveEffect",
+		method = "computeDurationInTicks",
 		at = @At(
 			value = "INVOKE",
 			target = "Lnet/minecraft/world/effect/MobEffect;isInstantaneous()Z"
