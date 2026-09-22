@@ -13,7 +13,6 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 
 public final class MadokuArmorManager {
 	private static final double DAMAGE_ROUND_INCREMENT = 0.05d;
-	private static final double POINT_STEP = 0.125d;
 	private static volatile ArmorConfigManager.Settings settings = ArmorConfigManager.Settings.defaults();
 
 	private MadokuArmorManager() {
@@ -67,16 +66,17 @@ public final class MadokuArmorManager {
 		double breachEffectiveness = ArmorAPIManager.resolveBreachArmorEffectiveness(entity, source);
 		armorPoints *= breachEffectiveness;
 		armorToughnessPoints *= breachEffectiveness;
+		double pointStep = ArmorAPIManager.resolveArmorPointStep();
 
 		double damageAfterArmor = settings.armorPoints.enabled
-			? applyDamageReduction(amount, armorPoints, settings.armorPoints.damageReduction, POINT_STEP)
+			? applyDamageReduction(amount, armorPoints, settings.armorPoints.damageReduction, pointStep)
 			: amount;
 		double damageAfterToughness = settings.armorToughnessPoints.enabled
 			? applyDamageReduction(
 				damageAfterArmor,
 				armorToughnessPoints,
 				settings.armorToughnessPoints.damageReduction,
-				POINT_STEP
+				pointStep
 			)
 			: damageAfterArmor;
 		double damageAfterResistance = bypassesArmor
