@@ -26,6 +26,11 @@ public final class ArmorConfigManager {
 	private static final DamageReductionType DEFAULT_ARMOR_TOUGHNESS_REDUCTION_TYPE = DamageReductionType.PERCENTAGE;
 	private static final double DEFAULT_ARMOR_TOUGHNESS_REDUCTION_VALUE = 0.005d;
 
+	private static final double DEFAULT_STARTING_DEFENSE_POINTS = 0.0d;
+	private static final double DEFAULT_MAX_DEFENSE_POINTS = 100.0d;
+	private static final DamageReductionType DEFAULT_DEFENSE_REDUCTION_TYPE = DamageReductionType.PERCENTAGE;
+	private static final double DEFAULT_DEFENSE_REDUCTION_VALUE = 0.02d;
+
 	private static final double DEFAULT_FALL_DAMAGE_REDUCTION = 0.5d;
 	private static final DamageReductionType DEFAULT_RESISTANCE_REDUCTION_TYPE = DamageReductionType.PERCENTAGE;
 	private static final double DEFAULT_RESISTANCE_REDUCTION_VALUE = 0.2d;
@@ -56,17 +61,20 @@ public final class ArmorConfigManager {
 		final MainSettings main;
 		final ArmorPointsSettings armorPoints;
 		final ArmorToughnessPointsSettings armorToughnessPoints;
+		final DefensePointsSettings defensePoints;
 
 		private Settings(
 			boolean enabled,
 			MainSettings main,
 			ArmorPointsSettings armorPoints,
-			ArmorToughnessPointsSettings armorToughnessPoints
+			ArmorToughnessPointsSettings armorToughnessPoints,
+			DefensePointsSettings defensePoints
 		) {
 			this.enabled = enabled;
 			this.main = main;
 			this.armorPoints = armorPoints;
 			this.armorToughnessPoints = armorToughnessPoints;
+			this.defensePoints = defensePoints;
 		}
 
 		static Settings defaults() {
@@ -74,7 +82,8 @@ public final class ArmorConfigManager {
 				DEFAULT_ENABLED,
 				MainSettings.defaults(),
 				ArmorPointsSettings.defaults(),
-				ArmorToughnessPointsSettings.defaults()
+				ArmorToughnessPointsSettings.defaults(),
+				DefensePointsSettings.defaults()
 			);
 		}
 
@@ -87,8 +96,9 @@ public final class ArmorConfigManager {
 			ArmorToughnessPointsSettings armorToughnessPoints = ArmorToughnessPointsSettings.fromJson(
 				readObject(source, "armor-toughness-points")
 			);
+			DefensePointsSettings defensePoints = DefensePointsSettings.fromJson(readObject(source, "defense-points"));
 
-			return new Settings(enabled, main, armorPoints, armorToughnessPoints);
+			return new Settings(enabled, main, armorPoints, armorToughnessPoints, defensePoints);
 		}
 
 		JsonObject toConfigJson() {
@@ -118,11 +128,20 @@ public final class ArmorConfigManager {
 						damageReduction.put("value", armorToughnessPoints.damageReduction.value);
 					});
 				})
+				.object("defense-points", group -> {
+					group.put("enabled", defensePoints.enabled);
+					group.put("starting-points", defensePoints.startingDefense);
+					group.put("max-points", defensePoints.maxPoints);
+					group.object("damage-reduction", damageReduction -> {
+						damageReduction.put("type", defensePoints.damageReduction.type.configValue);
+						damageReduction.put("value", defensePoints.damageReduction.value);
+					});
+				})
 				.build();
 		}
 
 		Settings withEnabled(boolean attributesEnabled) {
-			return new Settings(attributesEnabled && enabled, main, armorPoints, armorToughnessPoints);
+			return new Settings(attributesEnabled && enabled, main, armorPoints, armorToughnessPoints, defensePoints);
 		}
 
 		private static JsonObject readObject(JsonObject object, String key) {
@@ -347,6 +366,50 @@ public final class ArmorConfigManager {
 				DEFAULT_ARMOR_TOUGHNESS_REDUCTION_VALUE
 			);
 			return new ArmorToughnessPointsSettings(enabled, startingArmorToughness, maxPoints, damageReduction);
+		}
+	}
+
+	static final class DefensePointsSettings {
+		final boolean enabled;
+		final double startingDefense;
+		final double maxPoints;
+		final DamageReduction damageReduction;
+
+		private DefensePointsSettings(boolean enabled, double startingDefense, double maxPoints, DamageReduction damageReduction) {
+			this.enabled = enabled;
+			this.startingDefense = startingDefense;
+			this.maxPoints = maxPoints;
+			this.damageReduction = damageReduction;
+		}
+
+		static DefensePointsSettings defaults() {
+			return new DefensePointsSettings(
+				true,
+				DEFAULT_STARTING_DEFENSE_POINTS,
+				DEFAULT_MAX_DEFENSE_POINTS,
+				DamageReduction.defaults(DEFAULT_DEFENSE_REDUCTION_TYPE, DEFAULT_DEFENSE_REDUCTION_VALUE)
+			);
+		}
+
+		static DefensePointsSettings fromJson(JsonObject source) {
+			DefensePointsSettings defaults = defaults();
+			boolean enabled = Settings.getBoolean(source, "enabled", defaults.enabled);
+			double startingDefense = Settings.clampDouble(
+				Settings.getDouble(source, "starting-points", defaults.startingDefense),
+				0.0d,
+				100000.0d
+			);
+			double maxPoints = Settings.clampDouble(
+				Settings.getDouble(source, "max-points", defaults.maxPoints),
+				startingDefense,
+				100000.0d
+			);
+			DamageReduction damageReduction = DamageReduction.fromJson(
+				Settings.readObject(source, "damage-reduction"),
+				DEFAULT_DEFENSE_REDUCTION_TYPE,
+				DEFAULT_DEFENSE_REDUCTION_VALUE
+			);
+			return new DefensePointsSettings(enabled, startingDefense, maxPoints, damageReduction);
 		}
 	}
 

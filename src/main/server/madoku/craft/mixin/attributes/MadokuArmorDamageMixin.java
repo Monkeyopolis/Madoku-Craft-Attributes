@@ -25,12 +25,12 @@ public abstract class MadokuArmorDamageMixin {
 
 		boolean fallDamage = source != null && source.is(DamageTypeTags.IS_FALL);
 		boolean bypassesArmor = source != null && source.is(DamageTypeTags.BYPASSES_ARMOR) && !fallDamage;
-		if (bypassesArmor || !ArmorAPIManager.shouldOverrideVanillaArmorDamage(source)) {
+		if (!ArmorAPIManager.shouldOverrideVanillaArmorDamage(source)) {
 			return;
 		}
 
 		LivingEntity entity = (LivingEntity) (Object) this;
-		this.hurtArmor(source, amount);
+		if (!bypassesArmor) this.hurtArmor(source, amount);
 		cir.setReturnValue(ArmorAPIManager.applyCustomArmorDamage(entity, source, amount));
 	}
 

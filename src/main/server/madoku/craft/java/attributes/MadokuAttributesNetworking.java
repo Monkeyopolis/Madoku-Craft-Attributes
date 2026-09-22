@@ -12,6 +12,7 @@ final class MadokuAttributesNetworking {
 	static void initialize() {
 		if (initialized) return;
 		PayloadTypeRegistry.clientboundPlay().register(HungerPayloadManager.TYPE, HungerPayloadManager.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(OxygenPayloadManager.TYPE, OxygenPayloadManager.CODEC);
 		initialized = true;
 	}
 }

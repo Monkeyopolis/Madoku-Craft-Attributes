@@ -38,6 +38,7 @@ public final class MadokuArmorManager {
 
 		return settings.armorPoints.enabled
 			|| settings.armorToughnessPoints.enabled
+			|| settings.defensePoints.enabled
 			|| isResistanceEnabled()
 			|| (source.is(DamageTypeTags.IS_FALL) && settings.main.fallDamageReduction != 1.0d);
 	}
@@ -47,37 +48,40 @@ public final class MadokuArmorManager {
 			return amount;
 		}
 
+		boolean bypassesArmor = source.is(DamageTypeTags.BYPASSES_ARMOR) && !source.is(DamageTypeTags.IS_FALL);
 		double armorPoints = clampToRange(
-			readAttributeValue(entity, Attributes.ARMOR),
+			bypassesArmor ? 0.0d : readAttributeValue(entity, Attributes.ARMOR),
 			settings.armorPoints.startingArmor,
 			settings.armorPoints.maxPoints
 		);
 		double armorToughnessPoints = clampToRange(
-			readAttributeValue(entity, Attributes.ARMOR_TOUGHNESS),
+			bypassesArmor ? 0.0d : readAttributeValue(entity, Attributes.ARMOR_TOUGHNESS),
 			settings.armorToughnessPoints.startingArmorToughness,
 			settings.armorToughnessPoints.maxPoints
+		);
+		double defensePoints = clampToRange(
+			ArmorAPIManager.resolveDefensePoints(entity, source),
+			settings.defensePoints.startingDefense,
+			settings.defensePoints.maxPoints
 		);
 		double breachEffectiveness = ArmorAPIManager.resolveBreachArmorEffectiveness(entity, source);
 		armorPoints *= breachEffectiveness;
 		armorToughnessPoints *= breachEffectiveness;
 
 		double damageAfterArmor = settings.armorPoints.enabled
-			? applyDamageReduction(amount, armorPoints, settings.armorPoints.damageReduction)
+			? applyDamageReduction(amount, armorPoints, settings.armorPoints.damageReduction, POINT_STEP)
 			: amount;
-		if (settings.armorPoints.enabled && Math.abs(damageAfterArmor - amount) > 1.0e-6d) {
-		}
 		double damageAfterToughness = settings.armorToughnessPoints.enabled
 			? applyDamageReduction(
 				damageAfterArmor,
 				armorToughnessPoints,
-				settings.armorToughnessPoints.damageReduction
+				settings.armorToughnessPoints.damageReduction,
+				POINT_STEP
 			)
 			: damageAfterArmor;
-		if (settings.armorToughnessPoints.enabled && Math.abs(damageAfterToughness - damageAfterArmor) > 1.0e-6d) {
-		}
-		double damageAfterResistance = applyResistanceReduction(entity, source, damageAfterToughness);
-		if (damageAfterResistance != damageAfterToughness) {
-		}
+		double damageAfterResistance = bypassesArmor
+			? damageAfterToughness
+			: applyResistanceReduction(entity, source, damageAfterToughness);
 
 		double finalDamage = damageAfterResistance;
 		if (source.is(DamageTypeTags.IS_FALL)) {
@@ -85,6 +89,9 @@ public final class MadokuArmorManager {
 			finalDamage = amount - (mitigatedDamage * settings.main.fallDamageReduction);
 			if (Math.abs(finalDamage - damageAfterResistance) > 1.0e-6d) {
 			}
+		}
+		if (settings.defensePoints.enabled) {
+			finalDamage = applyDamageReduction(finalDamage, defensePoints, settings.defensePoints.damageReduction, 1.0d);
 		}
 
 		return (float) Math.max(0.0d, roundToDamageIncrement(finalDamage));
@@ -103,12 +110,17 @@ public final class MadokuArmorManager {
 	}
 
 
-	private static double applyDamageReduction(double amount, double points, ArmorConfigManager.DamageReduction reduction) {
+	private static double applyDamageReduction(
+		double amount,
+		double points,
+		ArmorConfigManager.DamageReduction reduction,
+		double pointStep
+	) {
 		if (amount <= 0.0d || reduction == null) {
 			return amount;
 		}
 
-		long pointSteps = getStepCount(points, POINT_STEP);
+		long pointSteps = getStepCount(points, pointStep);
 		if (pointSteps <= 0L) {
 			return amount;
 		}

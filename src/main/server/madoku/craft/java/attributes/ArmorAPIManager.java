@@ -26,6 +26,9 @@ public final class ArmorAPIManager {
 	public static double resolveBreachArmorEffectiveness(LivingEntity target, DamageSource source) {
 		return Math.max(0.0D, featureAdapter.resolveBreachArmorEffectiveness(target, source));
 	}
+	public static double resolveDefensePoints(LivingEntity target, DamageSource source) {
+		return Math.max(0.0D, featureAdapter.resolveDefensePoints(target, source));
+	}
 	public static void initialize() { provider.initialize(); }
 	public static boolean isEnabled() { return provider.isEnabled(); }
 	public static boolean isResistanceEnabled() { return provider.isResistanceEnabled(); }

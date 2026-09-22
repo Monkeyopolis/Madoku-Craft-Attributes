@@ -29,7 +29,10 @@ public final class MadokuAttributesClient {
 		ClientPlayNetworking.registerGlobalReceiver(HungerPayloadManager.TYPE, (payload, context) ->
 			context.client().execute(() -> applyHungerPayload(context.client(), payload))
 		);
-		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> clearHungerState());
+		ClientPlayNetworking.registerGlobalReceiver(OxygenPayloadManager.TYPE, (payload, context) ->
+			context.client().execute(() -> OxygenAPIManager.applyClientSynchronizedPlayerBonus(payload.bonusTicks()))
+		);
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> clearClientState());
 	}
 
 	public static void addHungerListener(HungerListener listener) {
@@ -75,9 +78,10 @@ public final class MadokuAttributesClient {
 		}
 	}
 
-	private static void clearHungerState() {
+	private static void clearClientState() {
 		serverHungerCurrent = 0;
 		serverHungerMax = 20;
 		hasServerHunger = false;
+		OxygenAPIManager.applyClientSynchronizedPlayerBonus(0);
 	}
 }

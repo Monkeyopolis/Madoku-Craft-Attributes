@@ -22,7 +22,9 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.food.FoodData;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class MadokuHealthManager {
@@ -48,6 +50,7 @@ public final class MadokuHealthManager {
 	private static final double MAX_HEALTH_REDUCTION_PER_STEP = 0.05d;
 
 	private static final Map<UUID, PlayerState> PLAYER_STATES = new HashMap<>();
+	private static final Set<UUID> PENDING_JOIN_HEALTH_RESTORES = new HashSet<>();
 	private static volatile HealthConfigManager.Settings settings = HealthConfigManager.Settings.defaults();
 	private static long lastAutosaveBucket = Long.MIN_VALUE;
 	private static volatile long nextPlayerTick = Long.MIN_VALUE;
@@ -65,6 +68,15 @@ public final class MadokuHealthManager {
 				return;
 			}
 			capturePlayerHealth(handler.player);
+			PENDING_JOIN_HEALTH_RESTORES.remove(handler.player.getUUID());
+			PlayerState state = PLAYER_STATES.get(handler.player.getUUID());
+			if (state != null && state.hasPersistableState()) {
+				PlayerDataAPIManager.setSystemDataForPlayer(
+					handler.player,
+					DATA_FILE_NAME,
+					toPersistedPlayerData(state)
+				);
+			}
 		});
 	}
 
@@ -74,6 +86,7 @@ public final class MadokuHealthManager {
 
 	public static void reset() {
 		PLAYER_STATES.clear();
+		PENDING_JOIN_HEALTH_RESTORES.clear();
 		lastAutosaveBucket = Long.MIN_VALUE;
 		nextPlayerTick = Long.MIN_VALUE;
 		AdaptiveIntervalAPIManager.clearSystem(HEALTH_PLAYER_TICK_SYSTEM_ID);
@@ -134,6 +147,7 @@ public final class MadokuHealthManager {
 			return;
 		}
 
+		restorePendingJoinHealth(server);
 		for (ServerPlayer player : server.getPlayerList().getPlayers()) {
 			processPlayer(player, gameplayTick);
 		}
@@ -515,11 +529,13 @@ public final class MadokuHealthManager {
 			return;
 		}
 
-		applyPersistedPlayerData(PlayerDataAPIManager.getSystemDataForPlayer(player, DATA_FILE_NAME, "players", "uuid"));
+		JsonObject persistedData = PlayerDataAPIManager.getSystemDataForPlayer(player, DATA_FILE_NAME, "players", "uuid");
+		applyPersistedPlayerData(persistedData);
 		PlayerState state = PLAYER_STATES.computeIfAbsent(player.getUUID(), ignored -> new PlayerState());
 		state.onlineThisSession = true;
 		state.lastProcessedGameplayTick = TimeAPIManager.getGameplayTicks();
 		applyImmediateEffectOverrides(player, state, TimeAPIManager.getGameplayTicks());
+		PENDING_JOIN_HEALTH_RESTORES.add(player.getUUID());
 	}
 
 	public static void handlePlayerEffectsChanged(ServerPlayer player) {
@@ -579,6 +595,15 @@ public final class MadokuHealthManager {
 		applyAbsorptionScaling(player, state, gameplayTick);
 	}
 
+	private static void restorePendingJoinHealth(MinecraftServer server) {
+		if (server == null || PENDING_JOIN_HEALTH_RESTORES.isEmpty()) return;
+		for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+			if (PENDING_JOIN_HEALTH_RESTORES.remove(player.getUUID())) {
+				restoreJoinHealth(player);
+			}
+		}
+	}
+
 	private static int getEffectLevel(ServerPlayer player, net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect> effect) {
 		if (player == null || effect == null) {
 			return 0;
@@ -620,6 +645,17 @@ public final class MadokuHealthManager {
 		}
 		return JSONFormatAPIManager.object()
 			.put("players", players.build())
+			.build();
+	}
+
+	private static JsonObject toPersistedPlayerData(PlayerState state) {
+		return JSONFormatAPIManager.object()
+			.put("current-health", state == null ? -1.0f : state.savedHealth)
+			.put("action-progress-ticks", state == null ? 0L : Math.max(0L, state.actionProgressTicks))
+			.put("low-hunger-action-progress-ticks", state == null ? 0L : Math.max(0L, state.lowHungerActionProgressTicks))
+			.put("poison-progress-ticks", state == null ? 0L : Math.max(0L, state.poisonProgressTicks))
+			.put("wither-progress-ticks", state == null ? 0L : Math.max(0L, state.witherProgressTicks))
+			.put("regeneration-progress-ticks", state == null ? 0L : Math.max(0L, state.regenerationProgressTicks))
 			.build();
 	}
 
