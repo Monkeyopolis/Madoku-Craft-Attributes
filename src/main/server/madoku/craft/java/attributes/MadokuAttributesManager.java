@@ -5,11 +5,19 @@ import com.google.gson.JsonParser;
 
 import madoku.craft.java.core.json.JSONFormatAPIManager;
 import madoku.craft.java.core.sync.SyncConfigAPIManager;
+import madoku.craft.java.core.upgrade.UpgradeCostFeatureAPIManager;
+import madoku.craft.java.core.upgrade.UpgradeCostFeatureAdapter;
 import net.minecraft.server.MinecraftServer;
 
 public final class MadokuAttributesManager {
 	private static volatile AttributesConfigManager.Settings settings = AttributesConfigManager.Settings.defaults();
 	private static volatile Boolean clientSynchronizedEnabled;
+	private static final UpgradeCostFeatureAdapter UPGRADE_COST_ADAPTER = new UpgradeCostFeatureAdapter() {
+		@Override
+		public int adjustExperienceBottleCost(int cost) {
+			return MadokuExperienceManager.isEnabled() ? cost : Math.max(1, Math.max(1, cost) / 2);
+		}
+	};
 
 	private MadokuAttributesManager() {
 	}
@@ -24,6 +32,7 @@ public final class MadokuAttributesManager {
 		LuckAPIManager.registerProvider(new MadokuLuckProvider());
 		ExperienceAPIManager.registerProvider(new MadokuExperienceProvider());
 		ExperienceAPIManager.initialize();
+		UpgradeCostFeatureAPIManager.registerAdapter(UPGRADE_COST_ADAPTER);
 		ArmorAPIManager.initialize();
 		HealthAPIManager.initialize();
 		HungerAPIManager.initialize();
