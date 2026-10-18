@@ -5,7 +5,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -43,6 +42,7 @@ public abstract class ItemFoodGateMixin {
 		if (stack.get(DataComponents.FOOD) == null) {
 			return;
 		}
+
 		if (!HungerAPIManager.canConsumeFood(serverPlayer, false)) {
 			cir.setReturnValue(stack);
 		}
@@ -54,12 +54,11 @@ public abstract class ItemFoodGateMixin {
 			return;
 		}
 
-		FoodProperties food = stack.get(DataComponents.FOOD);
-		if (food == null) {
+		if (stack.get(DataComponents.FOOD) == null) {
 			return;
 		}
 
-		HungerAPIManager.onFoodConsumed(serverPlayer, Math.max(0, food.nutrition()));
+		HungerAPIManager.onFoodConsumed(serverPlayer, Math.max(0, stack.get(DataComponents.FOOD).nutrition()));
 	}
 }
 
