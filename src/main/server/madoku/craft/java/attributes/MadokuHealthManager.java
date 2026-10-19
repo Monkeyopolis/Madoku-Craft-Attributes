@@ -29,7 +29,7 @@ import java.util.UUID;
 
 public final class MadokuHealthManager {
 	private static final float EPSILON = 1.0e-4f;
-	private static final float HEALTH_ROUND_STEP = 0.125f;
+	private static final float HEALTH_ROUND_STEP = 0.1f;
 	private static final int VANILLA_MAX_HUNGER_POINTS = 20;
 
 	private static final String DATA_FILE_NAME = "madoku-health";
