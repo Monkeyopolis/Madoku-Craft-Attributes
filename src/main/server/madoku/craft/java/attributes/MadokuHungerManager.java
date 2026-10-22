@@ -10,6 +10,7 @@ import madoku.craft.java.core.sync.SyncPlayerAPIManager;
 import madoku.craft.java.core.time.TimeAPIManager;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffect;
@@ -19,7 +20,9 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.food.FoodData;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class MadokuHungerManager {
@@ -37,6 +40,7 @@ public final class MadokuHungerManager {
 	private static final String HUNGER_PLAYER_TICK_SYSTEM_ID = "hunger_player_tick";
 
 	private static final Map<UUID, PlayerState> PLAYER_STATES = new HashMap<>();
+	private static final Set<UUID> PENDING_JOIN_HUNGER_RESTORES = new HashSet<>();
 	private static volatile HungerConfigManager.Settings settings = HungerConfigManager.Settings.defaults();
 	private static volatile Boolean clientSynchronizedEnabled;
 	private static volatile Integer clientSynchronizedMaximum;
@@ -50,11 +54,17 @@ public final class MadokuHungerManager {
 		loadStaticConfig();
 		ServerPlayerEvents.JOIN.register(MadokuHungerManager::handlePlayerJoin);
 		ServerPlayerEvents.AFTER_RESPAWN.register(MadokuHungerManager::handlePlayerRespawn);
+		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+			if (handler != null && handler.player != null) {
+				PENDING_JOIN_HUNGER_RESTORES.remove(handler.player.getUUID());
+			}
+		});
 		PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> handleBlockBreak(player));
 	}
 
 	public static void reset() {
 		PLAYER_STATES.clear();
+		PENDING_JOIN_HUNGER_RESTORES.clear();
 		lastAutosaveBucket = Long.MIN_VALUE;
 		nextPlayerTick = Long.MIN_VALUE;
 		AdaptiveIntervalAPIManager.clearSystem(HUNGER_PLAYER_TICK_SYSTEM_ID);
@@ -204,6 +214,28 @@ public final class MadokuHungerManager {
 		syncHudState(player, state, maxHungerPoints);
 	}
 
+	public static void restoreJoinHunger(ServerPlayer player) {
+		if (player == null || !settings.hunger.enabled) {
+			return;
+		}
+
+		PlayerState state = PLAYER_STATES.get(player.getUUID());
+		if (state == null) {
+			return;
+		}
+
+		int maxHungerPoints = resolveMaximumHungerPoints(player);
+		if (state.initialJoin) {
+			player.getFoodData().setFoodLevel(maxHungerPoints);
+			state.initialJoin = false;
+		}
+		normalizeFoodLevel(player, maxHungerPoints);
+		state.lastSyncedCurrentHunger = Integer.MIN_VALUE;
+		state.lastSyncedMaxHunger = Integer.MIN_VALUE;
+		PENDING_JOIN_HUNGER_RESTORES.remove(player.getUUID());
+		syncHudState(player, state, maxHungerPoints);
+	}
+
 	public static boolean shouldOverrideVanillaEffect(LivingEntity entity, MobEffect effect) {
 		if (!isHungerEffectEnabled() || !(entity instanceof ServerPlayer) || effect == null) {
 			return false;
@@ -281,6 +313,7 @@ public final class MadokuHungerManager {
 			return;
 		}
 
+		restorePendingJoinHunger(server);
 		for (ServerPlayer player : server.getPlayerList().getPlayers()) {
 			processPlayer(player, gameplayTick);
 		}
@@ -483,16 +516,12 @@ public final class MadokuHungerManager {
 		applyPersistedPlayerData(PlayerDataAPIManager.getSystemDataForPlayer(player, DATA_FILE_NAME, "players", "uuid"));
 		boolean firstJoin = !PLAYER_STATES.containsKey(player.getUUID());
 		PlayerState state = PLAYER_STATES.computeIfAbsent(player.getUUID(), ignored -> new PlayerState());
-		int maxHungerPoints = resolveMaximumHungerPoints(player);
-		if (firstJoin) {
-			player.getFoodData().setFoodLevel(maxHungerPoints);
-		}
-		normalizeFoodLevel(player, maxHungerPoints);
+		state.initialJoin = firstJoin;
 		state.lastProcessedGameplayTick = TimeAPIManager.getGameplayTicks();
 		state.markPosition(player.getX(), player.getZ());
 		state.lastSyncedCurrentHunger = Integer.MIN_VALUE;
 		state.lastSyncedMaxHunger = Integer.MIN_VALUE;
-		syncHudState(player, state, maxHungerPoints);
+		PENDING_JOIN_HUNGER_RESTORES.add(player.getUUID());
 	}
 
 	private static void handlePlayerRespawn(ServerPlayer oldPlayer, ServerPlayer newPlayer, boolean alive) {
@@ -569,6 +598,15 @@ public final class MadokuHungerManager {
 			foodData.setFoodLevel(normalized);
 		}
 		return normalized;
+	}
+
+	private static void restorePendingJoinHunger(MinecraftServer server) {
+		if (server == null || PENDING_JOIN_HUNGER_RESTORES.isEmpty()) return;
+		for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+			if (PENDING_JOIN_HUNGER_RESTORES.contains(player.getUUID())) {
+				restoreJoinHunger(player);
+			}
+		}
 	}
 
 	private static void syncHudState(ServerPlayer player, PlayerState state, int maxHungerPoints) {
@@ -804,6 +842,7 @@ public final class MadokuHungerManager {
 	}
 
 	private static final class PlayerState {
+		private boolean initialJoin;
 		private long blockBreakProgress;
 		private double movementProgress;
 		private long timeProgressTicks;

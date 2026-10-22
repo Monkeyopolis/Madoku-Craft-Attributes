@@ -26,6 +26,7 @@ public interface HungerProvider {
 	default void resetClientSynchronizedSettings() { }
 	default boolean shouldApplyStarvationDamage(ServerPlayer player) { return false; }
 	default void handleMaximumHungerChanged(ServerPlayer player) { }
+	default void restoreJoinHunger(ServerPlayer player) { }
 	default boolean shouldOverrideVanillaEffect(LivingEntity entity, MobEffect effect) { return false; }
 	default boolean canConsumeFood(ServerPlayer player, boolean ignoreHunger) { return false; }
 	default void onFoodConsumed(ServerPlayer player, int nutrition) { }

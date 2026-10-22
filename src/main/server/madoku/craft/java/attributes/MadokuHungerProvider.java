@@ -26,6 +26,7 @@ public final class MadokuHungerProvider implements HungerProvider {
 	@Override public void resetClientSynchronizedSettings() { MadokuHungerManager.resetClientSynchronizedSettings(); }
 	@Override public boolean shouldApplyStarvationDamage(ServerPlayer player) { return MadokuHungerManager.shouldApplyStarvationDamage(player); }
 	@Override public void handleMaximumHungerChanged(ServerPlayer player) { MadokuHungerManager.handleMaximumHungerChanged(player); }
+	@Override public void restoreJoinHunger(ServerPlayer player) { MadokuHungerManager.restoreJoinHunger(player); }
 	@Override public boolean shouldOverrideVanillaEffect(LivingEntity entity, MobEffect effect) { return MadokuHungerManager.shouldOverrideVanillaEffect(entity, effect); }
 	@Override public boolean canConsumeFood(ServerPlayer player, boolean ignoreHunger) { return MadokuHungerManager.canConsumeFood(player, ignoreHunger); }
 	@Override public void onFoodConsumed(ServerPlayer player, int nutrition) { MadokuHungerManager.onFoodConsumed(player, nutrition); }

@@ -60,6 +60,7 @@ public final class HungerAPIManager {
 	public static void resetClientSynchronizedSettings() { provider.resetClientSynchronizedSettings(); }
 	public static boolean shouldApplyStarvationDamage(ServerPlayer player) { return provider.shouldApplyStarvationDamage(player); }
 	public static void handleMaximumHungerChanged(ServerPlayer player) { provider.handleMaximumHungerChanged(player); }
+	public static void restoreJoinHunger(ServerPlayer player) { provider.restoreJoinHunger(player); }
 	public static boolean shouldOverrideVanillaEffect(LivingEntity entity, MobEffect effect) {
 		return provider.shouldOverrideVanillaEffect(entity, effect);
 	}
