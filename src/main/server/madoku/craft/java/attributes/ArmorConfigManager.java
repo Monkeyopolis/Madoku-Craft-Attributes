@@ -31,7 +31,7 @@ public final class ArmorConfigManager {
 	private static final DamageReductionType DEFAULT_DEFENSE_REDUCTION_TYPE = DamageReductionType.PERCENTAGE;
 	private static final double DEFAULT_DEFENSE_REDUCTION_VALUE = 0.02d;
 
-	private static final double DEFAULT_FALL_DAMAGE_REDUCTION = 0.5d;
+	private static final double DEFAULT_FALL_DAMAGE_REDUCTION = 0.25d;
 	private static final DamageReductionType DEFAULT_RESISTANCE_REDUCTION_TYPE = DamageReductionType.PERCENTAGE;
 	private static final double DEFAULT_RESISTANCE_REDUCTION_VALUE = 0.2d;
 
