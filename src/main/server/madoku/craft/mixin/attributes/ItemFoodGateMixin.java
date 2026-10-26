@@ -8,6 +8,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -25,11 +26,13 @@ public abstract class ItemFoodGateMixin {
 		}
 
 		ItemStack stack = serverPlayer.getItemInHand(hand);
-		if (stack.get(DataComponents.FOOD) == null) {
+		FoodProperties food = stack.get(DataComponents.FOOD);
+		if (food == null) {
 			return;
 		}
 
-		if (!HungerAPIManager.canConsumeFood(serverPlayer, false)) {
+		boolean canConsume = HungerAPIManager.canConsumeFood(serverPlayer, false);
+		if (!canConsume) {
 			cir.setReturnValue(InteractionResult.FAIL);
 		}
 	}
@@ -39,26 +42,15 @@ public abstract class ItemFoodGateMixin {
 		if (level == null || level.isClientSide() || !(entity instanceof ServerPlayer serverPlayer)) {
 			return;
 		}
-		if (stack.get(DataComponents.FOOD) == null) {
+		FoodProperties food = stack.get(DataComponents.FOOD);
+		if (food == null) {
 			return;
 		}
 
-		if (!HungerAPIManager.canConsumeFood(serverPlayer, false)) {
+		boolean canConsume = HungerAPIManager.canConsumeFood(serverPlayer, false);
+		if (!canConsume) {
 			cir.setReturnValue(stack);
 		}
-	}
-
-	@Inject(method = "finishUsingItem", at = @At("RETURN"))
-	private void madokuCraft$applyFoodNutritionToVanillaData(ItemStack stack, Level level, LivingEntity entity, CallbackInfoReturnable<ItemStack> cir) {
-		if (level == null || level.isClientSide() || !(entity instanceof ServerPlayer serverPlayer)) {
-			return;
-		}
-
-		if (stack.get(DataComponents.FOOD) == null) {
-			return;
-		}
-
-		HungerAPIManager.onFoodConsumed(serverPlayer, Math.max(0, stack.get(DataComponents.FOOD).nutrition()));
 	}
 }
 

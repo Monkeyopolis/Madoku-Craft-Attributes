@@ -11,6 +11,7 @@
     "attributes.EntityAirSupplyMaximumMixin",
     "attributes.FoodDataSaturationDisableMixin",
     "attributes.FoodDataStarvationDamageMixin",
+    "attributes.FoodPropertiesNutritionMixin",
     "attributes.ItemFoodGateMixin",
     "attributes.MadokuArmorDamageMixin",
     "attributes.LivingEntityEffectAttributeOverrideMixin",
