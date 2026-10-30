@@ -5,6 +5,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import madoku.craft.java.core.data.PlayerDataAPIManager;
+import madoku.craft.java.core.attribute.PlayerAttributeAPIManager;
+import madoku.craft.java.core.attribute.PlayerAttributeStat;
 import madoku.craft.java.core.runtime.AdaptiveIntervalAPIManager;
 import madoku.craft.java.core.sync.SyncPlayerAPIManager;
 import madoku.craft.java.core.time.TimeAPIManager;
@@ -632,7 +634,8 @@ public final class MadokuHungerManager {
 		if (player == null || !settings.hunger.enabled) {
 			return configuredMaximum;
 		}
-		return Math.max(1, configuredMaximum + HungerAPIManager.getFeatureHungerBonusPoints(player));
+		int bonus = Math.max(0, (int) Math.round(PlayerAttributeAPIManager.resolveBonus(player, PlayerAttributeStat.HUNGER)));
+		return Math.max(1, configuredMaximum + bonus);
 	}
 
 	private static int resolveEffectAmount(ServerPlayer player, HungerConfigManager.EffectSettings effect, int effectLevel, int maxHungerPoints) {

@@ -1,11 +1,11 @@
 package madoku.craft.java.attributes;
 
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import madoku.craft.java.core.attribute.PlayerAttributeAPIManager;
 import madoku.craft.java.core.data.ChunkDataAPIManager;
 import madoku.craft.java.core.helper.BlockDropContextAPIManager;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
@@ -18,7 +18,6 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
-import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemInstance;
@@ -31,10 +30,6 @@ import java.lang.reflect.Method;
 import java.util.function.Consumer;
 
 public final class MadokuLuckManager {
-	private static final Identifier BASE_LUCK_MODIFIER_ID =
-		Identifier.fromNamespaceAndPath("madoku-craft", "madoku_luck");
-	private static final Identifier EFFECT_LUCK_MODIFIER_ID =
-		Identifier.fromNamespaceAndPath("madoku-craft", "madoku_luck_effect");
 	private static volatile LuckConfigManager.Settings settings = LuckConfigManager.Settings.defaults();
 	private static volatile Boolean clientSynchronizedEnabled;
 
@@ -131,53 +126,18 @@ public final class MadokuLuckManager {
 	}
 
 	private static void refreshPlayerLuck(ServerPlayer player) {
-		applyBaseLuck(player);
-		applyLuckEffect(player);
+		PlayerAttributeAPIManager.apply(player);
 	}
 
-	private static void applyBaseLuck(ServerPlayer player) {
-		if (player == null) {
-			return;
-		}
-
-		AttributeInstance luckAttribute = player.getAttribute(Attributes.LUCK);
-		if (luckAttribute == null) {
-			return;
-		}
-
-		luckAttribute.removeModifier(BASE_LUCK_MODIFIER_ID);
-		if (settings.enabled && settings.luck.enabled && settings.luck.startingPoints > 0.0d) {
-			luckAttribute.addOrUpdateTransientModifier(
-				new AttributeModifier(
-					BASE_LUCK_MODIFIER_ID,
-					settings.luck.startingPoints,
-					AttributeModifier.Operation.ADD_VALUE
-				)
-			);
-		}
-	}
-
-	private static void applyLuckEffect(ServerPlayer player) {
-		if (player == null) {
-			return;
-		}
-
-		AttributeInstance luckAttribute = player.getAttribute(Attributes.LUCK);
-		if (luckAttribute == null) {
-			return;
-		}
-
-		luckAttribute.removeModifier(EFFECT_LUCK_MODIFIER_ID);
+	/** Returns the Attributes-owned additive Luck contribution. */
+	public static double playerAttributeBonus(ServerPlayer player) {
+		if (player == null || !settings.enabled || !settings.luck.enabled) return 0.0d;
 		int effectLevel = getLuckEffectLevel(player);
 		double maxBonus = Math.max(0.0d, settings.luck.maxPoints - settings.luck.startingPoints);
 		double bonus = settings.enabled && settings.luckEffect.enabled
 			? Math.min(maxBonus, effectLevel * settings.luckEffect.value)
 			: 0.0d;
-		if (bonus > 0.0d) {
-			luckAttribute.addOrUpdateTransientModifier(
-				new AttributeModifier(EFFECT_LUCK_MODIFIER_ID, bonus, AttributeModifier.Operation.ADD_VALUE)
-			);
-		}
+		return Math.max(0.0d, settings.luck.startingPoints + bonus);
 	}
 
 	private static int getLuckEffectLevel(ServerPlayer player) {

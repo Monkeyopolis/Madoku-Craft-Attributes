@@ -4,6 +4,8 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.server.level.ServerPlayer;
 import madoku.craft.java.core.sync.SyncPlayerAPIManager;
+import madoku.craft.java.core.attribute.PlayerAttributeAPIManager;
+import madoku.craft.java.core.attribute.PlayerAttributeStat;
 
 /** Provides the configured vanilla oxygen maximum for player air-supply hooks and HUDs. */
 public final class MadokuOxygenManager {
@@ -28,7 +30,7 @@ public final class MadokuOxygenManager {
 		Integer synchronizedMaximum = clientSynchronizedMaximum;
 		int maximum = Math.max(1, synchronizedMaximum == null ? settings.oxygen.maxOxygenTicks : synchronizedMaximum);
 		if (entity instanceof ServerPlayer player) {
-			maximum += OxygenAPIManager.getFeatureOxygenBonusTicks(player);
+			maximum += Math.max(0, (int) Math.round(PlayerAttributeAPIManager.resolveBonus(player, PlayerAttributeStat.OXYGEN)));
 		} else if (entity instanceof Player) {
 			maximum += clientSynchronizedPlayerBonusTicks;
 		}
@@ -37,7 +39,8 @@ public final class MadokuOxygenManager {
 
 	public static void handleMaximumOxygenChanged(ServerPlayer player) {
 		if (player == null) return;
-		SyncPlayerAPIManager.send(player, new OxygenPayloadManager(OxygenAPIManager.getFeatureOxygenBonusTicks(player)));
+		int bonus = Math.max(0, (int) Math.round(PlayerAttributeAPIManager.resolveBonus(player, PlayerAttributeStat.OXYGEN)));
+		SyncPlayerAPIManager.send(player, new OxygenPayloadManager(bonus));
 	}
 
 	public static void applyClientSynchronizedSettings(boolean enabled, int maximum) {

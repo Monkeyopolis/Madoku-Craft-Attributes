@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import madoku.craft.java.core.json.JSONFormatAPIManager;
+import madoku.craft.java.core.attribute.PlayerAttributeAPIManager;
 import madoku.craft.java.core.sync.SyncConfigAPIManager;
 import madoku.craft.java.core.upgrade.UpgradeCostFeatureAPIManager;
 import madoku.craft.java.core.upgrade.UpgradeCostFeatureAdapter;
@@ -25,6 +26,7 @@ public final class MadokuAttributesManager {
 	public static void initialize() {
 		MadokuAttributesNetworking.initialize();
 		loadStaticConfig();
+		PlayerAttributeAPIManager.registerProvider(new MadokuAttributesPlayerAttributeProvider());
 		ArmorAPIManager.registerProvider(new MadokuArmorProvider());
 		HealthAPIManager.registerProvider(new MadokuHealthProvider());
 		HungerAPIManager.registerProvider(new MadokuHungerProvider());

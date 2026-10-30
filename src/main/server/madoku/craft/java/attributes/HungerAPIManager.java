@@ -11,8 +11,6 @@ import net.minecraft.world.entity.LivingEntity;
 public final class HungerAPIManager {
 	private static final HungerProvider UNAVAILABLE_PROVIDER = new HungerProvider() { };
 	private static volatile HungerProvider provider = UNAVAILABLE_PROVIDER;
-	private static final HungerFeatureAdapter NO_FEATURE_ADAPTER = player -> 0;
-	private static volatile HungerFeatureAdapter featureAdapter = NO_FEATURE_ADAPTER;
 	private static final DataSaveParticipant DATA_SAVE_PARTICIPANT = new DataSaveParticipant() {
 		@Override public String id() { return "attributes.hunger"; }
 		@Override public void autosavePersistedData(MinecraftServer server) { HungerAPIManager.autosavePersistedData(server); }
@@ -30,14 +28,6 @@ public final class HungerAPIManager {
 	public static void unregisterProvider() {
 		provider = UNAVAILABLE_PROVIDER;
 		DataSaveParticipantAPIManager.unregister(DATA_SAVE_PARTICIPANT.id());
-	}
-	public static void registerFeatureAdapter(HungerFeatureAdapter candidate) {
-		if (candidate == null) throw new IllegalArgumentException("Hunger feature adapter must not be null.");
-		featureAdapter = candidate;
-	}
-	public static void unregisterFeatureAdapter() { featureAdapter = NO_FEATURE_ADAPTER; }
-	public static int getFeatureHungerBonusPoints(ServerPlayer player) {
-		return Math.max(0, featureAdapter.getPlayerHungerBonusPoints(player));
 	}
 	public static void initialize() { provider.initialize(); }
 	public static void reset() { provider.reset(); }

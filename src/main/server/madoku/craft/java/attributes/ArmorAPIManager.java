@@ -1,7 +1,10 @@
 package madoku.craft.java.attributes;
 
+import madoku.craft.java.core.attribute.PlayerAttributeAPIManager;
+import madoku.craft.java.core.attribute.PlayerAttributeStat;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.server.level.ServerPlayer;
 
 /** Public contract for the armor attribute subsystem. */
 public final class ArmorAPIManager {
@@ -27,7 +30,9 @@ public final class ArmorAPIManager {
 		return Math.max(0.0D, featureAdapter.resolveBreachArmorEffectiveness(target, source));
 	}
 	public static double resolveDefensePoints(LivingEntity target, DamageSource source) {
-		return Math.max(0.0D, featureAdapter.resolveDefensePoints(target, source));
+		return target instanceof ServerPlayer player
+			? PlayerAttributeAPIManager.resolveBonus(player, PlayerAttributeStat.DEFENSE)
+			: 0.0D;
 	}
 	public static double resolveArmorPointStep() {
 		double pointStep = featureAdapter.resolveArmorPointStep();
