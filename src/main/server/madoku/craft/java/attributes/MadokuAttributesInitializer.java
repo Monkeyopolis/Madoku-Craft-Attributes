@@ -2,11 +2,13 @@ package madoku.craft.java.attributes;
 
 import madoku.craft.java.core.module.MadokuStandaloneModule;
 import madoku.craft.java.core.module.MadokuStandaloneRuntime;
+import madoku.craft.java.core.module.MadokuModuleIds;
 import net.fabricmc.api.ModInitializer;
 import net.minecraft.server.MinecraftServer;
 
 /** Fabric entrypoint for the standalone Attributes jar. */
 public final class MadokuAttributesInitializer implements ModInitializer, MadokuStandaloneModule {
+	@Override public net.minecraft.resources.Identifier id() { return MadokuModuleIds.ATTRIBUTES; }
 	@Override public void onInitialize() { MadokuStandaloneRuntime.initialize(this); }
 	@Override public void initialize() { MadokuAttributesManager.initialize(); }
 	@Override public void reset() { MadokuAttributesManager.reset(); }
